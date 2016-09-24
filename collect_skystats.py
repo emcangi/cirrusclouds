@@ -10,19 +10,23 @@ from os import walk
 import imexam
 from box_stats import real_m_stats
 
-mypath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera/12May2016'
+mypath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
 
 #Collect the address for the current DS9 window
 ds9data = imexam.list_active_ds9()
 ds9data = ds9data.split()
 XPA_METHOD = ds9data[3]
 
-#XPA_METHOD = raw_input("Please enter the XPA_METHOD string: ")
 print('Current default path is {}'.format(mypath))
-path_to_use = raw_input("Enter full path of top level directory containing "
-                        "images (enter to use default): ")
-if path_to_use != '':
-    mypath = path_to_use
+use_default = raw_input('Use default path? (y/n) ')
+
+if use_default == 'n':
+    mypath = raw_input('Enter full path of top level directory containing '
+                        'images: ')
+elif use_default == 'y':
+    img_directory = raw_input('Enter top level dated image directory: ')
+    mypath = mypath + '/' + img_directory
+
 
 # Connect to DS9 and register a new task with imexam to gather stats
 v = imexam.connect(XPA_METHOD)

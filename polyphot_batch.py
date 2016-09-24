@@ -101,6 +101,8 @@ def do_photometry():
     coordfile = gsize + 'grid_centers.txt'
     polygonfile = gsize + 'grid_polygons.txt'
 
+    print('\nNow doing photometry. Please wait...\n')
+
     # Loops through images and call polyphot for each --------------------------
     for image, logname in zip(image_data, lognames):
         filename = image[0]

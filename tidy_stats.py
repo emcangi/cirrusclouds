@@ -30,8 +30,8 @@ def tidy_list_skyvals(mypath):
     print('Using these files: {}'.format(filenames))
 
     # Establish the output file for finalizing the sky values
-    output = open('nice_skyvals.txt', 'w')
-    output.write('IMAGE \t SKY MEAN \t SIGMA \t EXPOSURE \t PATH\n')
+    output = open('files_and_params.txt', 'w')
+    output.write('# IMAGE \t SKY MEAN \t SIGMA \t EXPOSURE \t PATH\n')
 
     # Main loop: Deals with the messy files by extracting the filenames,
     # gathering all the acquired data (doesn't matter how many datapoints),
