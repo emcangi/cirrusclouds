@@ -1,0 +1,47 @@
+OVERALL PROCEDURE
+
+Take photos
+
+    0. Create a chart of possible filter combinations. Do this before the photo session to avoid scrambling.
+    1. Connect the camera to laptop. Open AstroCap. In Astrocap, set the color type to RAW (Mono) and check in settings that the image type is set to FITS.
+    2. Create a folder for the day.
+    3. Take a photo of clear sky that will be used to gauge the sky value.
+    4. Take photos of cirrus clouds with varying exposures, depending on what exposure seems to produce a visible image. Store photos in appropriately labeled folders indicating filters used and exposure. The format is:
+        <Brand><Number><Color>/XXX<unit>
+        For example:
+        Orion82aBlue/300microsec
+
+        For combinations of filters use:
+        <Brand><Number><Color>-<Brand><Number><Color>/XXX<unit>
+        For example:
+        Orion82aBlue-Celestron47Purple/300microsec
+
+        Where the first item in the name is the first filter used (the one closest to the CCD)
+
+Use imexam to get basic statistics about each file
+
+    1. Open a terminal and activate the iraf environment: source activate iraf27 (or whatever its name is)
+    2. Open a ds9 window with the command ds9 &
+    3. Navigate to the Python scripts folder
+    4. Run the file collect_skystats.py
+    5. When the image opens in DS9, bring DS9 to the focus, hover over the image with the mouse and use the custom key (probably 'i' unless it has been changed) to collect stats. That is, hover the mouse over an area of clear sky and press the i key. Do this in 4 spots for each image.
+    6. Also run imexam on the clear sky photo (if available). Compare with sky values in other photos.
+
+File cleanup
+
+Imexam is currently not working correctly with logfiles.
+
+    1. Find the log file where all the sky stats were saved. Should be in the PythonScripts folder.
+    2. Separate out image stats by filter/exposure combination by copying the block of text for filter/exposure combination and moving it into its own file. Start at the "_run_imexam" line and copy to the end of the stats for the last entry of that uniuue combination (for example, 'Orion 82A blue filter & 300microsec).
+    3. The files containing stats for each combniation should be named like '[filtername]XXX[unit]sec.txt'.
+
+Generate tidy files of image stats
+
+    4. Run tidy_stats.py to create a nice file of format: NAME SKYVAL SIGMA EXPOSURE FULLPATH (note: can be done in Python notebook. Must pass in a path name.)
+    5. Check file when done
+
+Do photometry
+
+    1. In the pyraf environment, import eveything from polyphot_batch.py.
+    2. Call do_photometry() at the prompt to do photometry on collected images.
+
