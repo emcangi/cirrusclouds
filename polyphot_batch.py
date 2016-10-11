@@ -4,6 +4,7 @@
 # Do photometry in batch mode!
 # Eryn Cangi
 # 1 September 2016
+# Script 3 of 3 to run
 # ============================================================================ #
 
 
@@ -116,6 +117,7 @@ def do_photometry():
                       output=im_path+logname, polygons=path+polygonfile,
                       interactive='no', skyvalue=sky, sigma=sig, itime=exp,
                       verify='no')
+
 
     print('Photometry complete!')
 

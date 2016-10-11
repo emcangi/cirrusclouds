@@ -4,6 +4,7 @@
 # Takes files with pixel statistics and extracts the sky values and sigmas.
 # Eryn Cangi
 # 31 August 2016
+# Script 2 of 3 to run
 # ============================================================================ #
 
 
@@ -15,6 +16,8 @@ def tidy_list_skyvals(mypath):
 
     output: a single tidy file summarizing the values for each image,
     with path name attached for ease of navigation.
+    Tidy file has column headers:
+    IMAGE  SKY MEAN  SIGMA  EXPOSURE  FIRST FILTER  SECOND FILTER  PATH
     """
 
     from os import walk
@@ -31,7 +34,8 @@ def tidy_list_skyvals(mypath):
 
     # Establish the output file for finalizing the sky values
     output = open('files_and_params.txt', 'w')
-    output.write('# IMAGE \t SKY MEAN \t SIGMA \t EXPOSURE \t PATH\n')
+    output.write('# IMAGE \t SKY MEAN \t SIGMA \t EXPOSURE \t FIRST '
+                 'FILTER \t SECOND FILTER \t PATH\n')
 
     # Main loop: Deals with the messy files by extracting the filenames,
     # gathering all the acquired data (doesn't matter how many datapoints),
@@ -74,6 +78,8 @@ def tidy_list_skyvals(mypath):
                     # writes to the output file
                     output.write('{}\t{}\t{}\t{}\t{}\n'.format(image, mmin,
                                                                std, exp,
+                                                               first_filter,
+                                                               second_filter,
                                                                imgpath))
 
                 # NOW START WORKING ON IMAGE DESIGNATED BY THIS LINE...
@@ -83,6 +89,10 @@ def tidy_list_skyvals(mypath):
 
                 # Extract the image name
                 image = re.search(fnameexp, line).group(0)
+
+                # Extract the filter combination
+                first_filter = re.search('\w+(?=-)', thepath).group(0)
+                second_filter = re.search('(?<=-)\w+', thepath).group(0)
 
                 # extract the exposure time
                 e = re.search('\d+\D{0,5}sec', thepath).group(0)

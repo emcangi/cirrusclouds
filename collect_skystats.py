@@ -3,6 +3,8 @@
 # ============================================================================ #
 # Helper script to iterate through the images and allow interaction with DS9 to
 # get the sky values
+# Script 1 of 3 to run
+# Output: Single file with imexam stats for each image.
 # ============================================================================ #
 
 import sys
@@ -66,7 +68,7 @@ start = raw_input('Directory to start on (enter = start from beginning. You may'
 if start != '':
     # Go through lists of directories and images
     for imglist in imgdirlists:
-        if start not in imglist[0]: 
+        if start not in imglist[0]:
             imgdirlists_copy.remove(imglist)
             print('Skipping directory {}'.format(imglist[0]))
         else:
