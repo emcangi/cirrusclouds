@@ -1,13 +1,27 @@
 #!/home/emc/anaconda3/envs/astroconda/bin/python
 
 # ============================================================================ #
-# Summarize photometry outputs for an image file
+# Summarize photometry outputs for an image file. Creates a nice pandas table.
 # Eryn Cangi
 # 4 October 2016
+# ****************NEED TO UPDATE ME********* 17 OCTOBER *****************
 # ============================================================================ #
 
 import os
 from pandas import DataFrame
+from os import walk
+
+# Collect sets of corresponding paths and lists of image names =================
+imgdirlists = []                  # store images within a directory
+
+print('Building list of filenames and directories...')
+
+for (dirpath, dirnames, filenames) in walk(mypath):
+    if filenames:  # Only proceed if filenames has values (we have found images)
+        do things
+
+
+mypath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
 
 # Gather the image filename ----------------------------------------------------
 
@@ -34,6 +48,7 @@ print('Current default path to the photometry file is {}, where curly '
                                '[2]: Enter just the file name ('
                                	'use the default path)\n\n')
 
+# Create a new file with just the data and not the key lines from polyphot
 output_file = phot_file + "_data"
 
 os.system("tail -n +83 {} > {}".format(phot_file, output_file))
@@ -49,9 +64,9 @@ with open(output_file, 'r') as f:
         # finds lines that end in 5 only--these are the ones with data
         if ln_cnt % 5 == 0 and ln_cnt % 10 != 0:
             data.append(line)
-        # check what the last digit of the line number is    
-        last_digit = ln_cnt % 10 
-        # these lines will hold vertices of the cell 
+        # check what the last digit of the line number is
+        last_digit = ln_cnt % 10
+        # these lines will hold vertices of the cell
         if last_digit in [7, 8, 9, 0]:
             if last_digit == 7:
                 grids.append([])  # start a new sublist if it is a new cell
@@ -61,17 +76,20 @@ with open(output_file, 'r') as f:
         ln_cnt += 1  # we have to keep track since Python doesn't
 
 # Construct data display table -------------------------------------------------
-             
-big_table = [['Counts', 'Area(pixels)', 'Flux counts', 'Mag', 'MERR', 'PIER', 
-			  'PERROR', 'v1', 'v2', 'v3', 'v4']]
+
+big_table = [['Counts', 'Area(pixels)', 'Flux counts', 'Mag', 'MERR', 'PIER',
+              'PERROR', 'v1', 'v2', 'v3', 'v4']]
 
 for e1, e2 in zip(data, grids):
     datum = e1.split()  # extract useful info
     del datum[-1]  # gets rid of some garbage characters trailing on the line
+    datum = datum[:3]  # get rid of magg, merr, pier, perror which we don't need
+    datum = [float(i) for i in datum]
 
     # appends vertices in neat ordered-pair format
     for el in e2:
-        datum.append(el.strip().split()[:2])
+        # witchcraft to append a list of floats for the coordinates
+        datum.append([float(i) for i in el.strip().split()[:2]])
 
     # add data and vertices to a big table
     big_table.append(datum)

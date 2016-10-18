@@ -7,7 +7,6 @@
 # Output: Single file with imexam stats for each image.
 # ============================================================================ #
 
-import sys
 from os import walk
 import imexam
 from box_stats import real_m_stats
@@ -88,43 +87,55 @@ if start != '':
 else:
     pass
 
-print('Starting imexam loop...')
+one_only = raw_input('Are you trying to load just one image? (y/n)')
 
-# loop through images. Code will automatically pause to allow interaction. q to
-# continue to next image.
-completed = []
+if one_only == 'y':
+    extradir = raw_input('Enter any additional parent folders: ')
+    imgname = raw_input('Enter the image name with extension: ')
+    v.load_fits(mypath+extradir+imgname)
+    v.setlog(filename="{}_sky".format(imgname[:-4]), on=True)
+    v.imexam()
+    v.setlog(filename="{}_sky".format(imgname[:-4]), on=False)
+    print('Finished with image {}'.format(imgname))
+else:
 
-for sublist in imgdirlists:
-    imgnames = sublist[1]
-    curdir = sublist[0]
-    if sublist[1]:
-        for image in imgnames:
-            #print('Using directory {}, image {}'.format(imgdir, image))
-            path = "{}/{}".format(curdir, image)
-            v.load_fits(path)
-            v.setlog(filename="{}_sky".format(image[:-4]), on=True)
-            v.imexam()
-            v.setlog(filename="{}_sky".format(image[:-4]), on=False)
-    else:
-        pass
+    print('Starting imexam loop...')
 
-    completed.append(sublist[0])
-    quit = raw_input('Finished with directory. Continue to next directory?'
-                     '(y/n): ')
-    if quit == 'n':
-        print('Exiting imexam loop process')
-        break
-    else:
-        pass
+    # loop through images. Code will automatically pause to allow interaction. q to
+    # continue to next image.
+    completed = []
 
-print('Completed these directories:')
-for directory in completed:
-    print(directory)
+    for sublist in imgdirlists:
+        imgnames = sublist[1]
+        curdir = sublist[0]
+        if sublist[1]:
+            for image in imgnames:
+                #print('Using directory {}, image {}'.format(imgdir, image))
+                path = "{}/{}".format(curdir, image)
+                v.load_fits(path)
+                v.setlog(filename="{}_sky".format(image[:-4]), on=True)
+                v.imexam()
+                v.setlog(filename="{}_sky".format(image[:-4]), on=False)
+        else:
+            pass
 
-print('Still undone: ')
-for todoitem in imgdirlists:
-    if todoitem[0] not in completed:
-        print(todoitem[0])
+        completed.append(sublist[0])
+        quit = raw_input('Finished with directory. Continue to next directory?'
+                         '(y/n): ')
+        if quit == 'n':
+            print('Exiting imexam loop process')
+            break
+        else:
+            pass
+
+    print('Completed these directories:')
+    for directory in completed:
+        print(directory)
+
+    print('Still undone: ')
+    for todoitem in imgdirlists:
+        if todoitem[0] not in completed:
+            print(todoitem[0])
 
 print('Shutting down. Goodbye!')
 
