@@ -69,7 +69,6 @@ def tidy_list_skyvals(mypath):
     # finding the min mean value and associated standard deviation and writing
     # out to the output file.
     for name in filenames:
-        print(name)
         with open(mypath+name, 'r') as f:
             lines = f.readlines()
 

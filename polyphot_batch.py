@@ -102,12 +102,16 @@ def do_photometry():
 
     gsize = raw_input('Enter the grid size to use (ex: 10x10): ')
 
+    # adjust lognames if grid size is not 10x10 to avoid overwriting files
+    if gsize != '10x10':
+        lognames = [i+'_'+gsize for i in lognames]
+
     coordfile = gsize + 'grid_centers.txt'
     polygonfile = gsize + 'grid_polygons.txt'
 
+    # Loops through images and call polyphot for each --------------------------
     print('\nNow doing photometry. Please wait...\n')
 
-    # Loops through images and call polyphot for each --------------------------
     for image, logname in zip(image_data, lognames):
         filename = image[0]
         sky = image[1]
@@ -123,7 +127,6 @@ def do_photometry():
                       interactive='no', skyvalue=sky, sigma=sig, itime=exp,
                       ifilter=', '.join([filter1, filter2]),
                       verify='no')
-
 
     print('Photometry complete!')
 

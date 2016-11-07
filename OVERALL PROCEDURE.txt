@@ -38,7 +38,7 @@ Imexam is currently not working correctly with logfiles.
 Generate tidy files of image stats
 
     1. Open the pyraf environment and run the command "from tidy_stats import *"
-    2. tidy_list_skyvals to create a nice file of format: IMAGE 	 SKY MEAN 	 SIGMA 	 EXPOSURE 	 FIRST FILTER 	 SECOND FILTER 	 PATH
+    2. Run tidy_list_skyvals to create a nice file of format: IMAGE 	 SKY MEAN 	 SIGMA 	 EXPOSURE 	 FIRST FILTER 	 SECOND FILTER 	 PATH. You must feed in the path to the files from the previous section, such as /home/emc/GoogleDrive/Phys/Research/BothunLab/AnalysisFiles/Bias/bias imexam results
     3. Check file when done
 
 Do photometry
