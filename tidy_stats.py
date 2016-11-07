@@ -84,11 +84,8 @@ def tidy_list_skyvals(mypath):
         means = []
         stds = []
 
-        print(lines)
         # ITERATE THROUGH STATISTICS AND IMAGES
         for i in range(len(lines)):
-            print(i)
-        #for line in lines:
             # recognize lines with filenames. They just happen to start with C.
             if lines[i][0] == 'C':
                 # start working on image designated by the current line
@@ -158,5 +155,3 @@ def tidy_list_skyvals(mypath):
                                              imgpath))
 
     output.close()
-
-tidy_list_skyvals('/home/emc/GoogleDrive/Phys/Research/BothunLab/AnalysisFiles/28-Oct-2016_dataset/28oct2016-imexam-results')
