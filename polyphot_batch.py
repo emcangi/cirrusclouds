@@ -45,15 +45,18 @@ def prepare_params():
                                '[2]: Enter just the working directory name ('
                                'use the default path)\n\n')
 
-    # Read in the param_file and put values in lists
+    # Read in the param_file and put values in a list. value order is:
+    # IMAGE 	 SKY MEAN 	 SIGMA 	 EXPOSURE 	 1ST FILTER 	 2ND FILTER
+    # 	 PATH
     image_data = []
 
     with open(param_file, 'r') as f:
-        throwaway = f.readline() # skip the first line which is a comment
+        throwaway = f.readline()  # skip the first line which is a comment
         for line in f:
             ln = line.split()
             if ln:
-                image_data.append([ln[0], ln[1], ln[2], ln[3], ln[4]])
+                image_data.append([ln[0], ln[1], ln[2], ln[3], ln[4], ln[5],
+                                   ln[6]])
 
     # Generate some logfile names for photometry output
     logs = ['{}_photometry'.format(x[0][:-4]) for x in image_data]
@@ -110,12 +113,15 @@ def do_photometry():
         sky = image[1]
         sig = image[2]
         exp = image[3]
-        im_path = image[4]
+        filter1 = image[4]
+        filter2 = image[5]
+        im_path = image[6]
 
         # call the task
         iraf.polyphot(im_path+filename, coords=path+coordfile,
                       output=im_path+logname, polygons=path+polygonfile,
                       interactive='no', skyvalue=sky, sigma=sig, itime=exp,
+                      ifilter=', '.join([filter1, filter2]),
                       verify='no')
 
 

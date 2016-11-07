@@ -87,16 +87,21 @@ if start != '':
 else:
     pass
 
-one_only = raw_input('Are you trying to load just one image? (y/n)')
+one_only = raw_input('Are you trying to load individual images manually? (y/n)')
 
 if one_only == 'y':
-    extradir = raw_input('Enter any additional parent folders: ')
-    imgname = raw_input('Enter the image name with extension: ')
-    v.load_fits(mypath+extradir+imgname)
-    v.setlog(filename="{}_sky".format(imgname[:-4]), on=True)
-    v.imexam()
-    v.setlog(filename="{}_sky".format(imgname[:-4]), on=False)
-    print('Finished with image {}'.format(imgname))
+    load_another = 'y'
+    while load_another != 'n':
+        extradir = raw_input('Enter any additional parent folders without '
+                             'initial and trailing slashes (e.g. '
+                             'folder1/folder2): ')
+        imgname = raw_input('Enter the image name with extension: ')
+        v.load_fits(mypath+'/'+extradir+'/'+imgname)
+        v.setlog(filename="{}_sky".format(imgname[:-4]), on=True)
+        v.imexam()
+        v.setlog(filename="{}_sky".format(imgname[:-4]), on=False)
+        print('Finished with image {}'.format(imgname))
+        load_another = raw_input('Load another single image? (y/n) ')
 else:
 
     print('Starting imexam loop...')

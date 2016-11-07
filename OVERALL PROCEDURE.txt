@@ -33,12 +33,13 @@ Imexam is currently not working correctly with logfiles.
 
     1. Find the log file where all the sky stats were saved. Should be in the PythonScripts folder.
     2. Separate out image stats by filter/exposure combination by copying the block of text for filter/exposure combination and moving it into its own file. Start at the "_run_imexam" line and copy to the end of the stats for the last entry of that uniuue combination (for example, 'Orion 82A blue filter & 300microsec).
-    3. The files containing stats for each combniation should be named like '[filtername]XXX[unit]sec.txt'.
+    3. The files containing stats for each combniation should be named like '[filtername]-[filtername]-XXX[unit]sec.txt'.
 
 Generate tidy files of image stats
 
-    4. Run tidy_stats.py to create a nice file of format: NAME SKYVAL SIGMA EXPOSURE FULLPATH (note: can be done in Python notebook. Must pass in a path name.)
-    5. Check file when done
+    1. Open the pyraf environment and run the command "from tidy_stats import *"
+    2. tidy_list_skyvals to create a nice file of format: IMAGE 	 SKY MEAN 	 SIGMA 	 EXPOSURE 	 FIRST FILTER 	 SECOND FILTER 	 PATH
+    3. Check file when done
 
 Do photometry
 
