@@ -1,15 +1,21 @@
 #!/home/emc/anaconda3/envs/astroconda/bin/python
 
 # ============================================================================ #
-# Summarize photometry outputs for an image file. Creates a nice pandas table.
+# Summarize photometry outputs for an image file. Creates a nice pandas table
+# and then utilizes the data in it to create an image with detection grid
+# drawn on to it.
 # Eryn Cangi
 # 4 October 2016
-# ****************NEED TO UPDATE ME********* 17 OCTOBER *****************
+# NEED TO UPDATE TO WORK IN BATCH, 7 NOVEMBER 2016 ------------
 # ============================================================================ #
 
 import os
 from pandas import DataFrame
 from os import walk
+import numpy as np
+import matplotlib.pyplot as plt
+from astropy.io import fits
+import pandas as pd
 
 # Collect sets of corresponding paths and lists of image names =================
 imgdirlists = []                  # store images within a directory
@@ -31,29 +37,38 @@ default = '/home/emc/GoogleDrive/Phys/Research/BothunLab' \
 print('Current default path to the photometry file is {}, where curly '
           'braces represent the working directory\n'.format(default))
 
-    choice = raw_input('How do you want to identify the photometry file?\n'
-                       '[1]: Enter full path to the file\n'
-                       '[2]: Enter just the file name (use the default path)\n'
-                       'Your choice: ')
+choice = raw_input('How do you want to identify the photometry file?\n'
+                   '[1]: Enter full path to the file\n'
+                   '[2]: Enter just the file name (use the default path)\n'
+                   'Your choice: ')
 
-    if choice == '1':
-        phot_file = raw_input('Please input path: ')
-    elif choice == '2':
-        d = raw_input('Please input file name: ')
-        phot_file = default.format(d)
-    else:
-        while choice != 1 or choice != 2:
-            choice = raw_input('Please enter either 1 or 2:\n'
-                               '[1]: Enter full path to the file\n'
-                               '[2]: Enter just the file name ('
-                               	'use the default path)\n\n')
+if choice == '1':
+    phot_file = raw_input('Please input path: ')
+elif choice == '2':
+    d = raw_input('Please input file name: ')
+    phot_file = default.format(d)
+else:
+    while choice != 1 or choice != 2:
+        choice = raw_input('Please enter either 1 or 2:\n'
+                           '[1]: Enter full path to the file\n'
+                           '[2]: Enter just the file name ('
+                            'use the default path)\n\n')
 
-# Create a new file with just the data and not the key lines from polyphot
+# Create shorter polyphoy results file (no comment lines) ======================
 output_file = phot_file + "_data"
 
 os.system("tail -n +83 {} > {}".format(phot_file, output_file))
 
-# Construct initial lists of information from the photometry file --------------
+# Get FITS data and save for using in matplotlib ===============================
+hdu_list = fits.open(image)
+hdu_list.info()
+image_data = hdu_list[0].data
+hdu_list.close()
+# plt.imshow(image_data, cmap='gray')
+# plt.colorbar()
+# plt.show()
+
+# Construct initial lists of information from the photometry file ==============
 ln_cnt = 1
 data = []
 grids = []
@@ -75,7 +90,7 @@ with open(output_file, 'r') as f:
                 grids_sublist += 1
         ln_cnt += 1  # we have to keep track since Python doesn't
 
-# Construct data display table -------------------------------------------------
+# Construct data display table =================================================
 
 big_table = [['Counts', 'Area(pixels)', 'Flux counts', 'Mag', 'MERR', 'PIER',
               'PERROR', 'v1', 'v2', 'v3', 'v4']]
@@ -94,12 +109,13 @@ for e1, e2 in zip(data, grids):
     # add data and vertices to a big table
     big_table.append(datum)
 
-# Make a Pandas dataframe
+# Make a Pandas dataframe ======================================================
 headers = big_table[0]
 df = DataFrame(big_table[1:], columns=headers)
 
-# Get the average counts for the whole image
-counts = pd.to_numeric(df['Counts'])
-mean_counts = counts.mean()
+# create sub dataframes with positive and negative fluxes
+posflux = df.loc[df['Flux'] >= 0]
+negflux = df.loc[df['Flux'] < 0]
 
-print('Mean counts: '.format(mean_counts))
+# Gather the sky magnitude =====================================================
+
