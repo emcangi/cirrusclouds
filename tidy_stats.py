@@ -8,30 +8,42 @@
 # ============================================================================ #
 
 
-def summarize_image(means, stds, image, thepath):
+def get_bg(means, stds, image, thepath):
     """
-    :param means:
-    :param stds:
-    :param image:
-    :param thepath:
-    :return:
+    :param means: a list of the mean sky values in 25 px boxes of the
+                  background sky (or closest to it we can get)
+    :param stds:  the sigmas associated with the above means. order matters
+    :param image: image name
+    :param thepath: path to the image
+
+    :returns median value of means; the associated standard deviation (sigma)
+             for that median value; the error in that value (sigma/sqrt(N))
+             and the image path name for convenience.
+
+    note that if the median of the sky value means appears more than once,
+    this will just find the first appearance and take the sigma of that line.
+    This is fine because there shouldn't be very much deviation between
+    different data.
     """
 
-    mmin = means[0]
-    mmin_index = means.index(means[0])
-    # Finds the minimum value in means and associated std index
-    for m in means:
-        if m < mmin:
-            mmin = m
-            mmin_index = means.index(m)
-
-    std = stds[mmin_index]
+    from math import sqrt
+    from numpy import median
 
     # remove filename at end of path - makes life easier later
     imgpath = thepath.replace(image, '')
 
-    # return
-    return mmin, std, imgpath
+    # because @#$% strings
+    means = [float(x) for x in means]
+    stds = [float(y) for y in stds]
+
+    # find sky value, associated sigma and error in the sky value. NOTE: this
+    #  will fail if there are an even number of data points for the sky
+    # background. TODO: fix to handle even number of datums
+    skyval = median(means)
+    sigma = stds[means.index(skyval)]
+    bgerr = sigma/sqrt(25)
+
+    return skyval, sigma, bgerr, imgpath
 
 
 def tidy_list_skyvals(mypath):
@@ -43,14 +55,15 @@ def tidy_list_skyvals(mypath):
     output: a single tidy file named files_and_params.txt summarizing the
     values for each image, with path name attached for ease of navigation.
     file has column headers:
-    IMAGE  SKY MEAN  SIGMA  EXPOSURE  FIRST FILTER  SECOND FILTER  PATH
+    IMAGE   SKYVAL   SIGMA   SKYVAL ERR   EXPOSURE   FILTER 1   FILTER 2   PATH
     """
 
     from os import walk
     import re
 
-    # Collect a list of files which contain pixel statistics
+    # Collect a list of files which contain pixel statistics -------------------
     for (dirpath, dirnames, file) in walk(mypath):
+        print(file)
         filenames = file
 
     if mypath[-1] != '/':
@@ -58,17 +71,17 @@ def tidy_list_skyvals(mypath):
 
     print('Using these files: {}'.format(filenames))
 
-    # Establish the output file for finalizing the sky values
+    # Establish the output file for finalizing the sky values ------------------
     output = open('files_and_params.txt', 'w')
-    output.write('# IMAGE \t SKY MEAN \t SIGMA \t EXPOSURE \t FIRST '
-                 'FILTER \t SECOND FILTER \t PATH\n')
-    wstr = '{}\t{}\t{}\t{}\t{}\t{}\t{}\n'
+    output.write('# IMAGE \t SKY VAL \t SIGMA \t SKYVAL ERR \t EXPOSURE \t '
+                 'FILTER 1 \t FILTER 2 \t PATH\n')
+    wstr = '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'
 
-    # Main loop: Deals with the messy files by extracting the filenames,
-    # gathering all the acquired data (doesn't matter how many datapoints),
-    # finding the min mean value and associated standard deviation and writing
-    # out to the output file.
+    # MAIN LOOP OVER TEXT FILES ------------------------------------------------
+    # Extracts the filenames, pares down all datapoints (no matter how many),
+    # finds the sky value, sigma and error and writes to output file
     for name in filenames:
+        print('FILE: {}'.format(name))
         with open(mypath+name, 'r') as f:
             lines = f.readlines()
 
@@ -83,7 +96,8 @@ def tidy_list_skyvals(mypath):
         means = []
         stds = []
 
-        # ITERATE THROUGH STATISTICS AND IMAGES
+        # ITERATE THROUGH STATISTICS -------------------------------------------
+        # warning: this section uses regular expression black magic
         for i in range(len(lines)):
             # recognize lines with filenames. They just happen to start with C.
             if lines[i][0] == 'C':
@@ -108,10 +122,9 @@ def tidy_list_skyvals(mypath):
                             'picosec': 1*10**(-12), 'femtosec': 1*10**(-15)}
                 exp = round(val * unit_key[unit], 6)
 
-            else:
+            else: #TODO: make this more concise
                 # This block is to handle gathering statistics when we are
-                # not at the end of the file yet. It could probably be
-                # condensed for brevity but that is not a priority.
+                # not at the end of the file yet.
                 if i+1 < len(lines):
                     if lines[i][0] != 'C' and lines[i+1][0] != 'C':
                         # if not a header line AND the following line isn't a
@@ -129,11 +142,11 @@ def tidy_list_skyvals(mypath):
                         stds.append(data[3])
 
                         # summarize the stats and write to the file
-                        mmin, std, imgpath = summarize_image(means, stds, image,
-                                                             thepath)
-                        output.write(wstr.format(image, mmin, std, exp,
-                                                 first_filter, second_filter,
-                                                 imgpath))
+                        skybg, sigma, bgerr, imgpath = get_bg(means, stds,
+                                                              image, thepath)
+                        output.write(wstr.format(image, skybg, sigma, bgerr,
+                                                 exp, first_filter,
+                                                 second_filter, imgpath))
 
                         # reset means and std lists for next image
                         means = []
@@ -147,10 +160,10 @@ def tidy_list_skyvals(mypath):
                     stds.append(data[3])
 
                     # summarize the stats and write to the file
-                    mmin, std, imgpath = summarize_image(means, stds, image,
-                                                         thepath)
-                    output.write(wstr.format(image, mmin, std, exp,
-                                             first_filter, second_filter,
-                                             imgpath))
+                    skybg, sigma, bgerr, imgpath = get_bg(means, stds,
+                                                          image, thepath)
+                    output.write(wstr.format(image, skybg, sigma, bgerr,
+                                             exp, first_filter,
+                                             second_filter, imgpath))
 
     output.close()
