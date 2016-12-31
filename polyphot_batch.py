@@ -1,4 +1,5 @@
 #!/home/emc/anaconda3/envs/astroconda/bin/python
+# -*- coding: utf-8 -*-
 
 # ============================================================================ #
 # Do photometry in batch mode!
@@ -14,7 +15,7 @@ def prepare_params():
     into a list. Also generates a list of logfile names.
 
     Format of storage file must be:
-    IMAGENAME    SKYVALUE    SIGMA    EXPOSURE    PATH
+    IMAGE   SKYVAL   SIGMA   SKYVAL ERR   EXPOSURE   FILTER 1   FILTER 2   PATH
 
     The 'PATH' is the path to the image file, not including the image file
     itself, and will be user- or computer- dependent.
@@ -36,7 +37,8 @@ def prepare_params():
     if choice == '1':
         param_file = raw_input('Please input path: ')
     elif choice == '2':
-        d = raw_input('Please input directory name with spaces, no slashes: ')
+        d = raw_input('Please input directory name with spaces, slashes '
+                      'allowed: ')
         param_file = default.format(d)
     else:
         while choice != 1 or choice != 2:
@@ -46,8 +48,7 @@ def prepare_params():
                                'use the default path)\n\n')
 
     # Read in the param_file and put values in a list. value order is:
-    # IMAGE 	 SKY MEAN 	 SIGMA 	 EXPOSURE 	 1ST FILTER 	 2ND FILTER
-    # 	 PATH
+    # IMAGE  SKYVAL  SIGMA  SKYVAL ERR  EXPOSURE  FILTER 1  FILTER 2  PATH
     image_data = []
 
     with open(param_file, 'r') as f:
@@ -56,7 +57,7 @@ def prepare_params():
             ln = line.split()
             if ln:
                 image_data.append([ln[0], ln[1], ln[2], ln[3], ln[4], ln[5],
-                                   ln[6]])
+                                   ln[6], ln[7]])
 
     # Generate some logfile names for photometry output
     logs = ['{}_photometry'.format(x[0][:-4]) for x in image_data]
@@ -101,6 +102,7 @@ def do_photometry():
         print(gfile)
 
     gsize = raw_input('Enter the grid size to use (ex: 10x10): ')
+    area = int(gsize[0:2]) * int(gsize[3:])
 
     # adjust lognames if grid size is not 10x10 to avoid overwriting files
     if gsize != '10x10':
@@ -116,12 +118,21 @@ def do_photometry():
         filename = image[0]
         sky = image[1]
         sig = image[2]
-        exp = image[3]
-        filter1 = image[4]
-        filter2 = image[5]
-        im_path = image[6]
+        err = image[3]
+        exp = image[4]
+        filter1 = image[5]
+        filter2 = image[6]
+        im_path = image[7]
 
-        # call the task
+        # calculate errors for the given cell
+        # TODO: make this less idiotic
+        count_err = err * area
+        err_file_name = '{} count error is {}.txt'.format(logname, count_err)
+        dumb = open(err_file_name, 'w')
+        dumb.write('Error is ±{} counts per cell '.format(count_err))
+        dumb.close()
+
+        # call the task, then write the error to the logfile at the end.
         iraf.polyphot(im_path+filename, coords=path+coordfile,
                       output=im_path+logname, polygons=path+polygonfile,
                       interactive='no', skyvalue=sky, sigma=sig, itime=exp,
