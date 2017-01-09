@@ -81,7 +81,7 @@ def tidy_list_skyvals(mypath):
     # Extracts the filenames, pares down all datapoints (no matter how many),
     # finds the sky value, sigma and error and writes to output file
     for name in filenames:
-        print('FILE: {}'.format(name))
+        print('Processing file: {}'.format(name))
         with open(mypath+name, 'r') as f:
             lines = f.readlines()
 
