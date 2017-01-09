@@ -126,10 +126,12 @@ def do_photometry():
 
         # calculate errors for the given cell
         # TODO: make this less idiotic
-        count_err = err * area
-        err_file_name = '{} count error is {}.txt'.format(logname, count_err)
+        count_err = float(err) * area
+        print('Processing image {}'.format(filename))
+        err_file_name = '{}/{} count error is {}.txt'.format(im_path, logname,
+                                                             count_err)
         dumb = open(err_file_name, 'w')
-        dumb.write('Error is ±{} counts per cell '.format(count_err))
+        dumb.write('Error is {} counts per cell '.format(count_err))
         dumb.close()
 
         # call the task, then write the error to the logfile at the end.
