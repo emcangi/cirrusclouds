@@ -34,8 +34,15 @@ def get_bg(means, stds, image, thepath):
 
     # because @#$% strings
     means = [float(x) for x in means]
+
+    stds = [float(y) for y in stds]
+
+    # find sky value, associated sigma and error in the sky value. NOTE: this
+    #  will fail if there are an even number of data points for the sky
+    # background. TODO: fix to handle even number of datums
+    skyval = median(means)
     try:
-        stds = [float(y) for y in stds]
+        sigma = stds[means.index(skyval)]
     except ValueError:
         print('Image {} probably has an even number of sky background data '
               'points in its imexam results file. Please re-run '
@@ -43,12 +50,6 @@ def get_bg(means, stds, image, thepath):
               'content of its imexam results file, delete any partially '
               'damaged files_and_params from the working directory and re-run '
               'this script.')
-
-    # find sky value, associated sigma and error in the sky value. NOTE: this
-    #  will fail if there are an even number of data points for the sky
-    # background. TODO: fix to handle even number of datums
-    skyval = median(means)
-    sigma = stds[means.index(skyval)]
     bgerr = sigma/sqrt(25)
 
     return skyval, sigma, bgerr, imgpath
