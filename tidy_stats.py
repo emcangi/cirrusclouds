@@ -39,7 +39,7 @@ def get_bg(means, stds, image, thepath):
 
     # find sky value, associated sigma and error in the sky value. NOTE: this
     #  will fail if there are an even number of data points for the sky
-    # background. TODO: fix to handle even number of datums
+    # background.
     skyval = median(means)
     try:
         sigma = stds[means.index(skyval)]
