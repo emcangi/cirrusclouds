@@ -70,13 +70,16 @@ def tidy_list_skyvals(mypath):
     from os import walk
     import re
 
-    # Collect a list of files which contain pixel statistics -------------------
-    for (dirpath, dirnames, file) in walk(mypath):
-        print(file)
-        filenames = file
+    filenames = []
 
-    if mypath[-1] != '/':
-        mypath += '/'
+    # Collect a list of files which contain pixel statistics -------------------
+    for (dirpath, dirnames, files) in walk(mypath):
+        for file in files:
+            if file.endswith('_sky'):
+                filenames.append(dirpath + '/' + file)
+
+    # if mypath[-1] != '/':
+    #     mypath += '/'
 
     print('Using these files: {}'.format(filenames))
 
@@ -91,11 +94,11 @@ def tidy_list_skyvals(mypath):
     # finds the sky value, sigma and error and writes to output file
     for name in filenames:
         print('Processing file: {}'.format(name))
-        with open(mypath+name, 'r') as f:
+        with open(name, 'r') as f:
             lines = f.readlines()
 
         # Get rid of extraneous lines created by pyRAF that we don't need
-        for L in ['\n', '_run_imexam \n', 'real_m_stats \n',
+        for L in ['\n', '_run_imexam \n', 'all_m_stats \n',
                   'SLICE   NPIX   MEAN   STD   MEDIAN   MIN   MAX\n']:
             while L in lines:
                 lines.remove(L)
@@ -107,6 +110,8 @@ def tidy_list_skyvals(mypath):
 
         # ITERATE THROUGH STATISTICS -------------------------------------------
         # warning: this section uses regular expression black magic
+        # TODO: Redo the rest of this file to account for changes to the way
+        # TODO: the skystat files are made
         for i in range(len(lines)):
             # recognize lines with filenames. They just happen to start with C.
             if lines[i][0] == 'C':
@@ -131,7 +136,7 @@ def tidy_list_skyvals(mypath):
                             'picosec': 1*10**(-12), 'femtosec': 1*10**(-15)}
                 exp = round(val * unit_key[unit], 6)
 
-            else: #TODO: make this more concise
+            else: #TODO: completely redo this section for the new skystat files
                 # This block is to handle gathering statistics when we are
                 # not at the end of the file yet.
                 if i+1 < len(lines):

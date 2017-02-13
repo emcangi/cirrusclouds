@@ -1,17 +1,13 @@
-def real_m_stats(self, x, y, data=None):
-    """report the statisics of values in a box with side region_size.
-    The statistics are mean, std, median, min, max.
-    Parameters
-    ----------
-    x: int
-        The x location of the object
-    y: int
-        The y location of the object
-    data: numpy array
-        The data array to work on
+def all_m_stats(self, x, y, data=None):
     """
-    import numpy as np 
-    import logging 
+    reports all the statistics available with the 'm' task simultaneously,
+    operating on a box with side region_size.
+
+    :param x: the x location of the object
+    :param y: the y location of the object
+    :param data: numpy array, the data array to work on
+    """
+    import numpy as np
 
     if data is None:
         data = self._data
@@ -40,5 +36,5 @@ def real_m_stats(self, x, y, data=None):
     sr5 = "{}".format(stat5(data[ymin:ymax, xmin:xmax]))
     pstr = cols + box + area + sr1 + sr2 + sr3 + sr4 + sr5
 
-    print(pstr)
-    logging.info(pstr)
+    #print(pstr)
+    self.log.info(pstr)

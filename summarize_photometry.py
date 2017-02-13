@@ -64,9 +64,6 @@ hdu_list = fits.open(image)
 hdu_list.info()
 image_data = hdu_list[0].data
 hdu_list.close()
-# plt.imshow(image_data, cmap='gray')
-# plt.colorbar()
-# plt.show()
 
 # Construct initial lists of information from the photometry file ==============
 ln_cnt = 1

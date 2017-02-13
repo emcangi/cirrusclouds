@@ -111,6 +111,12 @@ headers = big_table[0]
 df = DataFrame(big_table[1:], columns=headers)
 print(df['Counts'])
 
+# EVERYTHING AFTER HERE IS OUTDATED AND NEEDS FIXED ============================
+
+
+
+
+
 # Calculate the background per cell, error and threshold of detection ==========
 # note that 300 is the area of a cell sized 20x15. later I should set this
 # dynamically

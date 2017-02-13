@@ -4,19 +4,18 @@
 # Helper script to iterate through the images and allow interaction with DS9 to
 # get the sky values
 # Script 1 of 3 to run
-# Output: Single file with imexam stats for each image.
+# Output: Individual output files for each image, tailored with the image name.
 # ============================================================================ #
 
 from os import walk
 import imexam
-from box_stats import real_m_stats
+from box_stats import all_m_stats
 
 mypath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
 
 #Collect the address for the current DS9 window
 ds9data = imexam.list_active_ds9()
-ds9data = ds9data.split()
-XPA_METHOD = ds9data[3]
+XPA_METHOD = ds9data.keys()[0]
 
 print('Current default path is {}'.format(mypath))
 use_default = raw_input('Use default path? (y/n) ')
@@ -31,11 +30,11 @@ elif use_default == 'y':
 
 # Connect to DS9 and register a new task with imexam to gather stats
 v = imexam.connect(XPA_METHOD)
-v.zoom(0.5)
 print('DS9 successfully connected\n')
 
-mydic = {"i": (real_m_stats, "Modified stat display function, displays all the "
-         "same stats that are normally displayed in imexamine's 'm' task")}
+mydic = {"i": (all_m_stats, "Modified stat display function, simultaneously "
+                             "displays all the stats that can be displayed with"
+                             " imexamine's 'm' task")}
 v.exam.register(mydic)
 print('New task successfully registered\n')
 
@@ -74,16 +73,7 @@ if start != '':
             # Break out of the loop once we've found the list with start
             break
 
-    # NOT WORKING-------------------
-    # # Now the first list in imgdirlists should be new working directory and files
-    # imgnamelist = imgdirlists_copy[0][1]  # alias to deal with long variable
-    # #imgnamelist = sorted(imgnamelist)   # sort to avoid deleting not-done images
-    # #print('Sorted:')
-    # print(imgnamelist)
-    # loc = imgnamelist.index(start)  # get start index
-    # print('Found {} at index {}'.format(start, loc))
-    # imgdirlists_copy[0][1] = imgnamelist[loc:]  # remove imgs before start
-    imgdirlists = list(imgdirlists_copy)   # Replace originals with updated copies
+    imgdirlists = list(imgdirlists_copy)  # Replace originals w/ updated copies
 else:
     pass
 
@@ -96,18 +86,21 @@ if one_only == 'y':
                              'initial and trailing slashes (e.g. '
                              'folder1/folder2): ')
         imgname = raw_input('Enter the image name with extension: ')
-        v.load_fits(mypath+'/'+extradir+'/'+imgname)
-        v.setlog(filename="{}_sky".format(imgname[:-4]), on=True)
+        single_image_path = mypath+'/'+extradir+'/'+imgname
+        print('PATH::: {}'.format(single_image_path))
+        v.load_fits(single_image_path, extver=0)
+        v.setlog(filename="{}/{}/{}_sky".format(mypath, extradir, imgname[:-4]))
+        v.zoom(0.5)
         v.imexam()
-        v.setlog(filename="{}_sky".format(imgname[:-4]), on=False)
+        v.setlog(on=False)
         print('Finished with image {}'.format(imgname))
         load_another = raw_input('Load another single image? (y/n) ')
 else:
 
     print('Starting imexam loop...')
 
-    # loop through images. Code will automatically pause to allow interaction. q to
-    # continue to next image.
+    # loop through images. Code will automatically pause to allow interaction.
+    # q to continue to next image.
     completed = []
 
     for sublist in imgdirlists:
@@ -115,12 +108,14 @@ else:
         curdir = sublist[0]
         if sublist[1]:
             for image in imgnames:
-                #print('Using directory {}, image {}'.format(imgdir, image))
+                print('Using directory {}, image {}'.format(curdir, image))
                 path = "{}/{}".format(curdir, image)
-                v.load_fits(path)
-                v.setlog(filename="{}_sky".format(image[:-4]), on=True)
+                print('PATH::: {}'.format(path))
+                v.load_fits(path, extver=0)
+                v.setlog(filename="{}_sky".format(path[:-4]))
+                v.zoom(0.5)
                 v.imexam()
-                v.setlog(filename="{}_sky".format(image[:-4]), on=False)
+                v.setlog(on=False)
         else:
             pass
 
