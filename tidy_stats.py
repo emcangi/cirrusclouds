@@ -64,15 +64,17 @@ def summarize_set(mypath):
     from os import walk
     import re
 
-    filenames = []
+    full_file_paths = []    # makes dealing with opening images easy
+    file_parent_dirs = []   # makes keeping track of parent directories easy
 
     # Collect a list of files which contain pixel statistics -------------------
     for (dirpath, dirnames, files) in walk(mypath):
         for file in files:
             if file.endswith('_sky'):
-                filenames.append(dirpath + '/' + file)
+                full_file_paths.append(dirpath + '/' + file)
+                file_parent_dirs.append(dirpath + '/')
 
-    print('Using these files: {}'.format(filenames))
+    print('Using these files: {}'.format(full_file_paths))
 
     # Establish the output file for finalizing the sky values ------------------
     output = open('files_and_params.txt', 'w')
@@ -84,7 +86,7 @@ def summarize_set(mypath):
     # Extracts the filenames, pares down all datapoints (no matter how many),
     # finds the sky value, sigma and error and writes to output file
 
-    for fpath in filenames:
+    for fpath, fdir in zip(full_file_paths, file_parent_dirs):
         print('Processing file: {}'.format(fpath))
 
         # PARSE FILENAME FOR IMAGE METADATA ------------------------------------
@@ -144,12 +146,9 @@ def summarize_set(mypath):
             means.append(data[2])            # Get the mean sky value
             stds.append(data[3])             # And its associated st dev
 
-        # Create the path to the image for writing to the file
-        imgpath = fpath[:-4] + '.FIT'
-
         # summarize the stats and write to the output file
         skybg, sigma, bgerr = get_bg(means, stds, image)
         output.write(wstr.format(image, skybg, sigma, bgerr, exp, bpfilter,
-                                 second_filter, imgpath))
+                                 second_filter, fdir))
 
     output.close()
