@@ -29,12 +29,15 @@ def get_bg(means, stds, image):
     from math import sqrt
     from numpy import median
 
-    # because @#$% strings
+    # convert to numbers
     means = [float(x) for x in means]
     stds = [float(y) for y in stds]
 
     # find sky value, associated sigma and error in the sky value.
     skyval = median(means)
+    # toggle the following line if dealing with camera bias files only!
+    #skyval = max(means)
+
     try:
         sigma = stds[means.index(skyval)]
     except ValueError:
@@ -108,7 +111,7 @@ def summarize_set(mypath):
                     bpfilter = re.search(fil, fpath).group(0)
                 except AttributeError:
                     continue
-        second_filter = 'None'  # TODO: somehow add support for 2 filters.
+        second_filter = 'None'  # TODO: maybe add support for 2 filters.
 
         # Extract the exposure time:
         # regex 1st expression: devil magic I found on stackexchange to
