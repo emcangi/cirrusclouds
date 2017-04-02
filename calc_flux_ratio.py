@@ -1,12 +1,14 @@
+#!/home/emc/anaconda3/envs/astroconda/bin/python
+# -*- coding: utf-8 -*-
+
 # ============================================================================ #
-# Calculate the flux ratio of two images given their respective photometry
-# files. Returns the flux ratios by grid cell which can then be plotted as
-# required.
-#
-# This script should be called from the command prompt and run interactively.
-#
 # Eryn Cangi
 # Created 15 January 2017
+# Script #4 of 5 to run
+# Calculate the flux ratio of two images given their respective photometry
+# files. Returns the flux ratios by grid cell which can then be plotted as
+# required. This is a batch operation.
+# This script should be called from the command prompt and run interactively.
 # ============================================================================ #
 
 import os
@@ -14,6 +16,9 @@ from pandas import DataFrame
 import numpy as np
 from itertools import permutations as perm
 
+# Camera bias - this is for the Orion Starshoot All-in-one camera and was
+# determined empirically
+BIAS = 0.1875
 
 def make_dataframe(phot_file, img_file):
     """
@@ -62,7 +67,7 @@ def make_dataframe(phot_file, img_file):
             if ln_cnt % 5 == 0 and last_digit != 0:
                 data.append(line)
 
-            # Lines ending in list the vertices of the grid cell
+            # The following lines list the vertices of the grid cell
             if last_digit in [7, 8, 9, 0]:
                 # start a new sublist if it is a new cell
                 if last_digit == 7:
@@ -79,15 +84,19 @@ def make_dataframe(phot_file, img_file):
     big_table = [['Counts', 'Area(pixels)', 'Flux', 'v1', 'v2', 'v3', 'v4']]
 
     for e1, e2 in zip(data, grid):
-        datum = e1.split()  # extract useful info
+        datum = e1.split()
         del datum[-1]  # gets rid of junk characters added to the line
-        datum = datum[:3]  # get rid of magg, merr, pier, perror (unneeded)
+        datum = datum[:3]   # extract useful info only (counts, area, flux)
         datum = [float(i) for i in datum]
 
         # appends vertices in neat ordered-pair format
         for el in e2:
             # witchcraft to append a list of floats for the coordinates
             datum.append([float(i) for i in el.strip().split()[:2]])
+
+        # Subtract off the camera bias ((bias/px) * area) from the counts,
+        # which is datum[0]
+        datum[0] -= BIAS * datum[1]
 
         # add data and vertices to a big table
         big_table.append(datum)

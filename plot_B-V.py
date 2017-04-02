@@ -1,12 +1,14 @@
+#!/home/emc/anaconda3/envs/astroconda/bin/python
+# -*- coding: utf-8 -*-
+
 # ============================================================================ #
+# Eryn Cangi
+# Created 15 January 2017
+# Script #5 of 5 to run
 # Plot the B-V values of two images given a dataframe containing those
 # numbers. Default behavior is to plot blueish values. Option to choose which
 #  B-V values within certain ranges to plot.
-#
 # This script should be called from the command prompt and run interactively.
-#
-# Eryn Cangi
-# Created 15 January 2017
 # ============================================================================ #
 
 import pandas as pd
@@ -87,6 +89,5 @@ for index, row in B_V_df.iterrows():  # iterate over the rows
         ax2.get_yaxis().set_visible(False)
     else:
         continue
-
 
 plt.show()
