@@ -1,10 +1,15 @@
 #!/home/emc/anaconda3/envs/astroconda/bin/python
+# -*- coding: utf-8 -*-
 
 # ============================================================================ #
+# Eryn Cangi
+# 31 August 2016
+# Script #1 of 5 to run
 # Helper script to iterate through the images and allow interaction with DS9 to
 # get the sky values
-# Script 1 of 3 to run
 # Output: Individual output files for each image, tailored with the image name.
+# This script should be called from the command line in the astroconda python
+#  environment and only after a DS9 window has already been opened.
 # ============================================================================ #
 
 from os import walk
@@ -13,10 +18,11 @@ from box_stats import all_m_stats
 
 mypath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
 
-#Collect the address for the current DS9 window
+# Collect the address for the current DS9 window
 ds9data = imexam.list_active_ds9()
 XPA_METHOD = ds9data.keys()[0]
 
+# Determine path containing images to be analyzed
 print('Current default path is {}'.format(mypath))
 use_default = raw_input('Use default path? (y/n) ')
 
@@ -33,8 +39,8 @@ v = imexam.connect(XPA_METHOD)
 print('DS9 successfully connected\n')
 
 mydic = {"i": (all_m_stats, "Modified stat display function, simultaneously "
-                             "displays all the stats that can be displayed with"
-                             " imexamine's 'm' task")}
+                            "displays all the stats that can be displayed with"
+                            " imexamine's 'm' task")}
 v.exam.register(mydic)
 print('New task successfully registered\n')
 
@@ -44,7 +50,7 @@ imgdirlists = []                  # store images within a directory
 print('Building list of filenames and directories...')
 
 for (dirpath, dirnames, filenames) in walk(mypath):
-    if filenames:  # Only proceed if filenames has values (we have found images)
+    if filenames:  # Only proceed if filenames has values (i.e. image files)
         temp = []
         temp.append(dirpath)
         fitsonly = [f for f in filenames if f[-4:] == '.FIT']  # Only use FITS
@@ -77,7 +83,7 @@ if start != '':
 else:
     pass
 
-one_only = raw_input('Are you trying to load individual images manually? (y/n)')
+one_only = raw_input('Do you need to load individual images manually? (y/n): ')
 
 if one_only == 'y':
     load_another = 'y'
@@ -120,9 +126,9 @@ else:
             pass
 
         completed.append(sublist[0])
-        quit = raw_input('Finished with directory. Continue to next directory?'
-                         '(y/n): ')
-        if quit == 'n':
+        quitting_time = raw_input('Finished with directory. Continue to next '
+                           'directory? (y/n): ')
+        if quitting_time == 'n':
             print('Exiting imexam loop process')
             break
         else:

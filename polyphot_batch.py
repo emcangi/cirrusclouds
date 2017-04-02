@@ -2,10 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # ============================================================================ #
-# Do photometry in batch mode!
 # Eryn Cangi
 # 1 September 2016
-# Script 3 of 3 to run
+# Script #3 of 5 to run
+# Uses files_and_params.txt (a summary of various images and their sky
+# values, etc) to calculate photometry for many images at once. Photometry
+# files are stored in the same folder as their parent image.
+# To use, enter a Python session in the terminal, import all functions and
+# then call the function do_photometry() with no arguments.
 # ============================================================================ #
 
 
@@ -125,13 +129,14 @@ def do_photometry():
         im_path = image[7]
 
         # calculate errors for the given cell
-        # TODO: make this less idiotic
+        # TODO: make this less idiotic (next 6 lines)
         count_err = float(err) * area
         print('Processing image {}'.format(filename))
         err_file_name = '{}/{} count error is {}.txt'.format(im_path, logname,
                                                              count_err)
         dumb = open(err_file_name, 'w')
-        dumb.write('Error is {} counts per cell '.format(count_err))
+        dumb.write('Error is {} counts per cell of area {}'.format(count_err,
+                                                                   area))
         dumb.close()
 
         # call the task, then write the error to the logfile at the end.

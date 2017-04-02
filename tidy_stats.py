@@ -1,11 +1,18 @@
 #!/home/emc/anaconda3/envs/astroconda/bin/python
+# -*- coding: utf-8 -*-
 
 # ============================================================================ #
-# Takes files with pixel statistics and extracts the sky values and sigmas.
 # Eryn Cangi
 # 31 August 2016
 # Updated 12 February 2017
-# Script 2 of 3 to run
+# Script #2 of 5 to run
+# Takes files with pixel statistics gathered by imexam and extracts the
+# median sky background values and sigmas.
+# Produces a text file called files_and_params.txt which summarizes all the
+# images in the set.
+# To use, enter a Python session in terminal and import all functions. Then
+# call the function summarize_set(path), where path is some path containing
+# folders of images.
 # ============================================================================ #
 
 
@@ -37,7 +44,6 @@ def get_bg(means, stds, image):
     skyval = median(means)
     # toggle the following line if dealing with camera bias files only!
     #skyval = max(means)
-
     try:
         sigma = stds[means.index(skyval)]
     except ValueError:
