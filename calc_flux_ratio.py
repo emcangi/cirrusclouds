@@ -17,7 +17,7 @@ import numpy as np
 from itertools import permutations as perm
 
 # Camera bias - this is for the Orion Starshoot All-in-one camera and was
-# determined empirically
+# determined empirically. This is faulty counts per pixel.
 BIAS = 0.1875
 
 def make_dataframe(phot_file, img_file):
@@ -37,13 +37,14 @@ def make_dataframe(phot_file, img_file):
     lines = 83
     os.system("tail -n +{} {} > {}".format(lines, phot_file, out_file))
 
-    # Construct initial lists of information from the photometry file ==========
+    # Construct initial lists of information from the photometry file ----------
     ln_cnt = 1  # we have to keep track since Python doesn't
-    data = []
-    grid = []
-    cell = 0  # keeps track of which cell we are on; order is how the cells
-    # appear in the photometry file.
+    data = []   # stores lines that contain photometry counts
+    grid = []   # stores cell vertices for a particular counts datum
+    cell = 0    # keeps track of which cell we are on; order is how the cells
+                # appear in the photometry file.
 
+    # Loops through the photometry file lines and collects data ================
     with open(out_file, 'r') as f:
         for line in f:
 
@@ -81,6 +82,7 @@ def make_dataframe(phot_file, img_file):
 
     # Construct data display table =============================================
 
+    # Headers of the table/dataframe
     big_table = [['Counts', 'Area(pixels)', 'Flux', 'v1', 'v2', 'v3', 'v4']]
 
     for e1, e2 in zip(data, grid):
@@ -94,8 +96,8 @@ def make_dataframe(phot_file, img_file):
             # witchcraft to append a list of floats for the coordinates
             datum.append([float(i) for i in el.strip().split()[:2]])
 
-        # Subtract off the camera bias ((bias/px) * area) from the counts,
-        # which is datum[0]
+        # Subtract off the camera bias ((faulty counts per px) * area) from the
+        # counts, which is datum[0]
         datum[0] -= BIAS * datum[1]
 
         # add data and vertices to a big table
@@ -153,9 +155,9 @@ def get_flux_ratio(imgs, photfiles):
     dfV, img_metadataV = make_dataframe(phot_fileV, img_fileV)
     dfB, img_metadataB = make_dataframe(phot_fileB, img_fileB)
 
-    # ==============================================================================
+    # ==========================================================================
     # CALCULATE THE FLUX RATIOS
-    # ==============================================================================
+    # ==========================================================================
 
     # Calculate flux ratio of images. Vertices from either dataframe since they
     # are the same
@@ -164,7 +166,7 @@ def get_flux_ratio(imgs, photfiles):
                                 'v1': dfV['v1'], 'v2': dfV['v2'],
                                 'v3': dfV['v3'], 'v4': dfV['v4']})
 
-    B_V_df = DataFrame({'B-V': -2.5 * np.log10(np.array((dfV['Flux'] / dfB['Flux']),
+    B_V_df = DataFrame({'B-V': -2.5*np.log10(np.array((dfV['Flux']/dfB['Flux']),
                         dtype='float32')), 'v1': dfV['v1'], 'v2': dfV['v2'],
                         'v3': dfV['v3'], 'v4': dfV['v4']})
 
@@ -193,7 +195,7 @@ for (dirpath, dirnames, files) in os.walk(mypath):
     for file in files:
         if file.endswith('.FIT'):     # store image path
             img_paths.append(dirpath + '/' + file)
-        elif file.endswith('64x64'):  #store path to photometry file
+        elif file.endswith('64x64'):  # store path to photometry file
             phot_paths.append(dirpath + '/' + file)
 
 # Generate combinations of filters
@@ -210,12 +212,12 @@ print('Total pairs: {}'.format(len(img_pairs)))
 count = 0
 for p1, p2 in zip(img_pairs, phot_pairs):
     print('Pair {}'.format(count))
-    print(img_pairs)
-    print(phot_pairs)
+    # print(img_pairs)
+    # print(phot_pairs)
     FRdf, metadataV, metadataB = get_flux_ratio(p1, p2)
 
-    # Write dataframe to CSV
-    fname = '{}FR_B-V_{}-{}.txt'.format(mypath, metadataB['filter1'],
-                                    metadataV['filter1'])
+    # Write dataframe to CSV. NaN is represented as -9999
+    fname = '{}FR_B-V_{}-{}.csv'.format(mypath, metadataB['filter1'],
+                                        metadataV['filter1'])
     FRdf.to_csv(path_or_buf=fname, encoding='utf-8', na_rep='-9999')
     count += 1

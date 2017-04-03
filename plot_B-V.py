@@ -17,6 +17,7 @@ from astropy.io import fits
 import math
 
 # Get FITS data and save for using in matplotlib ===========================
+default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
 dir_extN = raw_input('Please enter the directory(ies) housing the image taken '
                      'with no filter (ex. 28October2016/None/260microsec): ')
 imgN = raw_input('No-filter image file name: ')
@@ -39,6 +40,7 @@ dffile = raw_input('Please input the full path of the CSV file containing '
 B_V_df = pd.read_csv('dffile')
 
 # Draw boxes on the image where there is a valid B-V value
+n = 0
 for index, row in B_V_df.iterrows():  # iterate over the rows
     if math.isnan(row['B-V']):
         continue
@@ -55,9 +57,12 @@ for index, row in B_V_df.iterrows():  # iterate over the rows
 
         # ax.scatter(x, y, c='lime') # toggle to turn on plotting vertices
         ax1.plot(x, y, c='lime')
-        ax1.set_title('{}'.format(imgN), fontsize=20)
-        ax1.get_xaxis().set_visible(False)
-        ax1.get_yaxis().set_visible(False)
+        print('Plotted a vertex ({})'.format(n))
+        n+=1
+
+ax1.set_title('{}'.format(imgN), fontsize=20)
+ax1.get_xaxis().set_visible(False)
+ax1.get_yaxis().set_visible(False)
 
 plt.show()
 
