@@ -14,7 +14,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 from astropy.io import fits
-import math
+from ast import literal_eval
+import numpy as np
 
 # Get FITS data and save for using in matplotlib ===========================
 default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
@@ -28,28 +29,29 @@ hdu_list.info()
 image_data = hdu_list[0].data
 hdu_list.close()
 
+# Gather the dataframe
+dffile = raw_input('Please input the full path of the CSV file containing '
+                   'dataframe info: ')
+B_V_df = pd.read_csv(dffile)
+
+# Draw boxes on the image where there is a valid B-V value
+
 # create plot with image as background
 fig1 = plt.figure(figsize=(16, 12))
 ax1 = fig1.add_subplot(111)
 plt.imshow(image_data, cmap='gray')
 ax1.set_autoscale_on(False)
 
-# Gather the dataframe
-dffile = raw_input('Please input the full path of the CSV file containing '
-                   'dataframe info: ')
-B_V_df = pd.read_csv('dffile')
-
-# Draw boxes on the image where there is a valid B-V value
-n = 0
-for index, row in B_V_df.iterrows():  # iterate over the rows
-    if math.isnan(row['B-V']):
+# iterate over the rows
+for index, row in B_V_df.iterrows():
+    if row['B-V'] == -9999:           # ignore invalid B-V entries
         continue
     else:
         # collect the vertices for the boxes
-        r1 = row['v1']
-        r2 = row['v2']
-        r3 = row['v3']
-        r4 = row['v4']
+        r1 = literal_eval(row['v1'])
+        r2 = literal_eval(row['v2'])
+        r3 = literal_eval(row['v3'])
+        r4 = literal_eval(row['v4'])
 
         # including the 1st point at the end again allows the boxes to be closed
         x = np.array([r1[0], r2[0], r3[0], r4[0], r1[0]])
@@ -57,13 +59,12 @@ for index, row in B_V_df.iterrows():  # iterate over the rows
 
         # ax.scatter(x, y, c='lime') # toggle to turn on plotting vertices
         ax1.plot(x, y, c='lime')
-        print('Plotted a vertex ({})'.format(n))
-        n+=1
+        # print('Plotted a vertex ({})'.format(n))
+        # n += 1
 
-ax1.set_title('{}'.format(imgN), fontsize=20)
+ax1.set_title('Valid B-V values for {}'.format(imgN), fontsize=20)
 ax1.get_xaxis().set_visible(False)
 ax1.get_yaxis().set_visible(False)
-
 plt.show()
 
 # create plot with image as background
@@ -78,10 +79,10 @@ for index, row in B_V_df.iterrows():  # iterate over the rows
         continue
     elif row['B-V'] < 0:
         # collect the vertices for the boxes
-        r1 = row['v1']
-        r2 = row['v2']
-        r3 = row['v3']
-        r4 = row['v4']
+        r1 = literal_eval(row['v1'])
+        r2 = literal_eval(row['v2'])
+        r3 = literal_eval(row['v3'])
+        r4 = literal_eval(row['v4'])
 
         # including the 1st point at the end again allows the boxes to be closed
         x = np.array([r1[0], r2[0], r3[0], r4[0], r1[0]])
@@ -89,10 +90,10 @@ for index, row in B_V_df.iterrows():  # iterate over the rows
 
         # ax.scatter(x, y, c='lime') # toggle to turn on plotting vertices
         ax2.plot(x, y, c='lime')
-        ax2.set_title('{}'.format(imgN), fontsize=20)
-        ax2.get_xaxis().set_visible(False)
-        ax2.get_yaxis().set_visible(False)
     else:
         continue
 
+ax2.set_title('B-V < 0 (blue) {}'.format(imgN), fontsize=20)
+ax2.get_xaxis().set_visible(False)
+ax2.get_yaxis().set_visible(False)
 plt.show()
