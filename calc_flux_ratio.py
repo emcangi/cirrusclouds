@@ -15,6 +15,7 @@ import os
 from pandas import DataFrame
 import numpy as np
 from itertools import permutations as perm
+import re
 
 # Camera bias - this is for the Orion Starshoot All-in-one camera and was
 # determined empirically. This is faulty counts per pixel.
@@ -195,8 +196,11 @@ for (dirpath, dirnames, files) in os.walk(mypath):
     for file in files:
         if file.endswith('.FIT'):     # store image path
             img_paths.append(dirpath + '/' + file)
-        elif file.endswith('64x64'):  # store path to photometry file
-            phot_paths.append(dirpath + '/' + file)
+        else:
+            regex_result = re.search(r'([0-9]){1,3}[x]([0-9]){1,3}$', file)
+            if regex_result is not None:
+                phot_paths.append(dirpath + '/' + file)
+                print('I appended {}'.format(file))
 
 # Generate combinations of filters
 img_pairs = []   # img pairs, list of tuples: [(img1, img2), (img1, img3)...]
