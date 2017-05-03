@@ -14,12 +14,24 @@
 import os
 from pandas import DataFrame
 import numpy as np
-from itertools import permutations as perm
+#from itertools import permutations as perm
+import itertools
 import re
+from math import log10
 
 # Camera bias - this is for the Orion Starshoot All-in-one camera and was
 # determined empirically. This is faulty counts per pixel.
 BIAS = 0.1875
+
+# Zero points - Calculated in separate script
+zp_v_11 = -1.24
+zp_v_15 = -1.67
+zp_v_red = -2.48
+zp_v_green = -1.89
+zp_b_47 = -3.74
+zp_b_82a = 0.13
+zp_b_blue = -1.45
+zp_b_lum = 0.14
 
 def make_dataframe(phot_file, img_file):
     """
@@ -54,13 +66,17 @@ def make_dataframe(phot_file, img_file):
             if ln_cnt == 3:
                 msky = float(line.split()[0])  # gets magnitude of sky
                 sigma = float(line.split()[1])  # gets sigma
+                print('Found msky and sigma: {} and {}'.format(msky, sigma))
             if ln_cnt == 4:
                 filter1 = line.split()[2].split(',')[0]
                 filter2 = line.split()[2].split(',')[1]
+                print('Found filters: {}, {}'.format(filter1, filter2))
             if ln_cnt == 6:
                 gridsize = line.split()[0]
                 img_metadata = {'msky': msky, 'sigma': sigma, 'filter1': filter1,
                                 'filter2': filter2, 'gridsize': gridsize}
+                print('Found gridsize and assigned img_metadata: {}'.format(
+                    img_metadata))
 
             # check what the last digit of the line number is
             last_digit = ln_cnt % 10
@@ -99,7 +115,10 @@ def make_dataframe(phot_file, img_file):
 
         # Subtract off the camera bias ((faulty counts per px) * area) from the
         # counts, which is datum[0]
-        datum[0] -= BIAS * datum[1]
+        #TODO -- changed to datum[2] on April 25 because I was using counts (
+        # which includes sky) instead of flux. Is bias still being subtracted
+        #  correctly?
+        datum[2] -= BIAS * datum[1]
 
         # add data and vertices to a big table
         big_table.append(datum)
@@ -110,7 +129,7 @@ def make_dataframe(phot_file, img_file):
     return df, img_metadata
 
 
-def get_flux_ratio(imgs, photfiles):
+def get_flux_ratio(imgs, photfiles, zp_b, zp_v):
     """
     Generates flux ratio dataframes given a pair of images and their
     photometry files.
@@ -153,23 +172,28 @@ def get_flux_ratio(imgs, photfiles):
     phot_fileB = photfiles[0]
     phot_fileV = photfiles[1]
 
-    dfV, img_metadataV = make_dataframe(phot_fileV, img_fileV)
+    print('Sending in: \n {} and \n {}'.format(phot_fileB, phot_fileV))
+
+    # Get the tidy flux counts for the B and V filters--these are not yet B
+    # or V magnitudes, they are still fluxes!
     dfB, img_metadataB = make_dataframe(phot_fileB, img_fileB)
+    dfV, img_metadataV = make_dataframe(phot_fileV, img_fileV)
 
     # ==========================================================================
     # CALCULATE THE FLUX RATIOS
     # ==========================================================================
 
+    # Convert the dataframe information to magnitudes in B and V
+    to_mag_b = lambda x: -2.5 * log10(x) + zp_b
+    to_mag_v = lambda x: -2.5 * log10(x) + zp_v
+
+    dfB['flux'] = dfB['flux'].apply(to_mag_b)
+    dfV['flux'] = dfV['flux'].apply(to_mag_v)
+
     # Calculate flux ratio of images. Vertices from either dataframe since they
     # are the same
-    FRatio_VtoB_df = DataFrame({'F Ratio': np.array((dfV['Flux'] / dfB['Flux']),
-                                                    dtype='float32'),
-                                'v1': dfV['v1'], 'v2': dfV['v2'],
-                                'v3': dfV['v3'], 'v4': dfV['v4']})
-
-    B_V_df = DataFrame({'B-V': -2.5*np.log10(np.array((dfV['Flux']/dfB['Flux']),
-                        dtype='float32')), 'v1': dfV['v1'], 'v2': dfV['v2'],
-                        'v3': dfV['v3'], 'v4': dfV['v4']})
+    B_V_df = DataFrame({'B-V': dfB['Flux'] - dfV['Flux'], 'v1': dfV['v1'],
+                        'v2': dfV['v2'], 'v3': dfV['v3'], 'v4': dfV['v4']})
 
     return B_V_df, img_metadataV, img_metadataB
 
@@ -200,28 +224,62 @@ for (dirpath, dirnames, files) in os.walk(mypath):
             regex_result = re.search(r'([0-9]){1,3}[x]([0-9]){1,3}$', file)
             if regex_result is not None:
                 phot_paths.append(dirpath + '/' + file)
-                print('I appended {}'.format(file))
+
+print('WHAT WE HAVE TO MAKE PAIRS OF....')
+print(img_paths)
+print(phot_paths)
 
 # Generate combinations of filters
 img_pairs = []   # img pairs, list of tuples: [(img1, img2), (img1, img3)...]
 phot_pairs = []  # associated photometry files in same format
 
+#TODO: NEW WAYS TO GENERATE PAIRS
+
+blues = ['47', '82a', 'LRGBblue', 'LRGBluminance']
+visuals = ['11', '15', 'LRGBred', 'LRGBgreen']
+combos = list(itertools.product(blues, visuals))
+
+# make empty lists to store image pairs and photometry pairs
+img_path_pairs = [['', ''] for i in range(len(combos))]
+phot_path_pairs = [['', ''] for i in range(len(combos))]
+
+counter = 0
+for combo in combos:
+    for i, p in zip(img_paths, phot_paths):
+        b_match_img = re.search('/{}/'.format(combo[0]), i)
+        b_match_phot = re.search('/{}/'.format(combo[0]), p)
+        v_match_img = re.search('/{}/'.format(combo[1]), i)
+        v_match_phot = re.search('/{}/'.format(combo[1]), p)
+
+        if (b_match_img is not None) and (b_match_phot is not None):
+            img_path_pairs[counter][0] = i
+            phot_path_pairs[counter][0] = p
+        if (v_match_img is not None) and (v_match_phot is not None):
+            img_path_pairs[counter][1] = i
+            phot_path_pairs[counter][1] = p
+        else:
+            continue
+    counter += 1
+
+#TODO: stuff below is old stuff that is being fixed above---------
 # Finds pairs of images and stores that pair along with the associated
 # photometry files.
-for s1, s2 in zip(perm(img_paths, 2), perm(phot_paths, 2)):
-    img_pairs.append(s1)
-    phot_pairs.append(s2)
+# for s1, s2 in zip(perm(img_paths, 2), perm(phot_paths, 2)):
+#     img_pairs.append(s1)
+#     phot_pairs.append(s2)
+#
+# print('Total pairs: {}'.format(len(img_pairs)))
+# count = 0
 
-print('Total pairs: {}'.format(len(img_pairs)))
-count = 0
+# TODO: make a dictionary that includes the path lists and associated zero pts
+# Iterate through pairs
 for p1, p2 in zip(img_pairs, phot_pairs):
-    print('Pair {}'.format(count))
-    # print(img_pairs)
-    # print(phot_pairs)
-    FRdf, metadataV, metadataB = get_flux_ratio(p1, p2)
+    print('Processing pair {}/{}'.format(count, img_pairs))
+    BVdf, metadataV, metadataB = get_flux_ratio(p1, p2)  #TODO put zero points
+    BVdf.replace([np.inf, -np.inf], np.nan)    # set any "inf" values to NaN
 
     # Write dataframe to CSV. NaN is represented as -9999
-    fname = '{}FR_B-V_{}-{}.csv'.format(mypath, metadataB['filter1'],
-                                        metadataV['filter1'])
-    FRdf.to_csv(path_or_buf=fname, encoding='utf-8', na_rep='-9999')
+    fname = '{}B-V_{}-{}.csv'.format(mypath, metadataB['filter1'],
+                                     metadataV['filter1'])
+    BVdf.to_csv(path_or_buf=fname, encoding='utf-8', na_rep='-9999')
     count += 1
