@@ -18,21 +18,20 @@ import itertools
 import re
 from math import log10
 
-# Camera bias - this is for the Orion Starshoot All-in-one camera and was
-# determined empirically. This is faulty counts per pixel.
-BIAS = 0.1875
+# Camera bias: Determined empirically. Faulty counts per pixel.
+BIAS = 0.1875  # Orion Starshoot All-in-one camera
 
-# Zero points - Calculated in separate script
+# Zero points - Calculated in separate script find_zero_points.py
 ZP_DICT = {'11': -1.24, '15': -1.67, '47': -3.74, '82a': 0.13, 'LRGBred': -2.48,
            'LRGBgreen': -1.89, 'LRGBblue': -1.45, 'LRGBluminance': 0.14}
 
-def make_dataframe(phot_file, img_file):
+def make_dataframe(phot_file, pt):
     """
     For a given image and its photometry file, this function analyzes the
     photometry file to create a tidy Pandas data frame.
 
     :param phot_file: a file containing photometry for img_file
-    :param img_file: the path to a particular image file
+    :param pt: photometry type. 'm' = manual, 'g' = gridded
     :return: a Pandas dataframe of photometry data
     """
 
@@ -50,6 +49,7 @@ def make_dataframe(phot_file, img_file):
     cell = 0    # keeps track of which cell we are on; order is how the cells
                 # appear in the photometry file.
 
+    #TODO: Make next block a heckin lot more elegant...
     # Loops through the photometry file lines and collects data ================
     with open(out_file, 'r') as f:
         for line in f:
@@ -71,7 +71,7 @@ def make_dataframe(phot_file, img_file):
                 print('Found gridsize and assigned img_metadata: {}'.format(
                     img_metadata))
 
-            if photometry_type == 'g':
+            if pt == 'g':
                 # check what the last digit of the line number is
                 last_digit = ln_cnt % 10
 
@@ -91,7 +91,7 @@ def make_dataframe(phot_file, img_file):
                     if last_digit == 0:
                         cell += 1
 
-            elif photometry_type == 'm':
+            elif pt == 'm':
                 # there will only be data on line 5 if photometry is manual
                 if ln_cnt == 5:
                     print('Line 5 says: {}'.format(line))
@@ -107,9 +107,9 @@ def make_dataframe(phot_file, img_file):
     # Construct data display table =============================================
 
     # Headers of the table/dataframe
-    if photometry_type.lower() == 'g':
+    if pt == 'g':
         big_table = [['Counts', 'Area(pixels)', 'Flux', 'v1', 'v2', 'v3', 'v4']]
-    elif photometry_type.lower() == 'm':
+    elif pt == 'm':
         big_table = [['Counts', 'Area(pixels)', 'Flux', 'vertices']]
 
     for e1, e2 in zip(data, grid):
@@ -120,11 +120,11 @@ def make_dataframe(phot_file, img_file):
         datum = [float(i) for i in datum]
 
         # appends vertices in neat ordered-pair format
-        if photometry_type.lower() == 'g':
+        if pt == 'g':
             for el in e2:
                 # witchcraft to append a list of floats for the coordinates
                 datum.append([float(i) for i in el.strip().split()[:2]])
-        elif photometry_type.lower() == 'm':
+        elif pt == 'm':
             datum.append(e2)
 
         # Subtract off the camera bias ((faulty counts per px) * area) from the
@@ -143,13 +143,14 @@ def make_dataframe(phot_file, img_file):
     return df, img_metadata
 
 
-def get_flux_ratio(imgs, photfiles, zp_pair):
+def get_flux_ratio(imgs, photfiles, zp_pair, pt):
     """
     Generates flux ratio dataframes given a pair of images and their
     photometry files.
 
     :param imgs: A list of tuples, each storing a pair of image file paths
     :param photfiles: Photometry files associated with imgs
+    :param pt: photometry type. 'm' = manual, 'g' = gridded
     :return:
     """
 
@@ -192,8 +193,8 @@ def get_flux_ratio(imgs, photfiles, zp_pair):
 
     # Get the tidy flux counts for the B and V filters--these are not yet B
     # or V magnitudes, they are still fluxes!
-    dfB, img_metadataB = make_dataframe(phot_fileB, img_fileB)
-    dfV, img_metadataV = make_dataframe(phot_fileV, img_fileV)
+    dfB, img_metadataB = make_dataframe(phot_fileB, img_fileB, pt)
+    dfV, img_metadataV = make_dataframe(phot_fileV, img_fileV, pt)
 
     # ==========================================================================
     # CALCULATE THE FLUX RATIOS
@@ -231,7 +232,6 @@ folder = raw_input('Please input the main folder to operate on, '
 default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera' \
           '/{}/'
 mypath = default.format(folder)
-print(mypath)
 
 # Make folders
 paths = []
@@ -241,15 +241,16 @@ phot_paths = []
 # manual or gridded photometry; use info to construct string to search for to
 #  find photometry files
 photometry_type = raw_input('Is photometry [m]anual or [g]ridded?: ')
+pt = photometry_type.lower()
 
-if photometry_type.lower() == 'm':
+if pt == 'm':
     phot_str_end = 'manual$'
-elif photometry_type.lower() == 'g':
+elif pt == 'g':
     phot_str_end = '([0-9]){1,3}[x]([0-9]){1,3}$'
 else:
-    while photometry_type.lower() not in ['m', 'g']:
+    while pt not in ['m', 'g']:
         photometry_type = raw_input('Is photometry [m]anual or [g]ridded?: ')
-
+        pt = photometry_type.lower()
 
 # Collect a list of folders containing images, image paths and photometry paths
 for (dirpath, dirnames, files) in os.walk(mypath):
@@ -303,10 +304,13 @@ for combo in combos:
     counter += 1
 
 counter = 0
-# Iterate through pairs
+
+#TODO: output of the csv files is fucked up. Fix it.
+# Iterate through pairs and retrieve B-V dataframes.
 for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
-    print('Processing pair {}/{}'.format(count, len(zps)))
-    BVdf, metadataV, metadataB = get_flux_ratio(imgs, phots, zp)
+    print('Processing pair {}/{}'.format(counter, len(zps)))
+
+    BVdf, metadataV, metadataB = get_flux_ratio(imgs, phots, zp, pt)
     BVdf.replace([np.inf, -np.inf], np.nan)    # set any "inf" values to NaN
 
     # Write dataframe to CSV. NaN is represented as -9999
