@@ -14,7 +14,6 @@
 import os
 from pandas import DataFrame
 import numpy as np
-#from itertools import permutations as perm
 import itertools
 import re
 from math import log10
@@ -24,14 +23,8 @@ from math import log10
 BIAS = 0.1875
 
 # Zero points - Calculated in separate script
-zp_v_11 = -1.24
-zp_v_15 = -1.67
-zp_v_red = -2.48
-zp_v_green = -1.89
-zp_b_47 = -3.74
-zp_b_82a = 0.13
-zp_b_blue = -1.45
-zp_b_lum = 0.14
+ZP_DICT = {'11': -1.24, '15': -1.67, '47': -3.74, '82a': 0.13, 'LRGBred': -2.48,
+           'LRGBgreen': -1.89, 'LRGBblue': -1.45, 'LRGBluminance': 0.14}
 
 def make_dataframe(phot_file, img_file):
     """
@@ -78,40 +71,61 @@ def make_dataframe(phot_file, img_file):
                 print('Found gridsize and assigned img_metadata: {}'.format(
                     img_metadata))
 
-            # check what the last digit of the line number is
-            last_digit = ln_cnt % 10
+            if photometry_type == 'g':
+                # check what the last digit of the line number is
+                last_digit = ln_cnt % 10
 
-            # Lines ending in 5 are the ones with data
-            if ln_cnt % 5 == 0 and last_digit != 0:
-                data.append(line)
+                # Lines ending in 5 are the ones with data
+                if ln_cnt % 5 == 0 and last_digit != 0:
+                    data.append(line)
 
-            # The following lines list the vertices of the grid cell
-            if last_digit in [7, 8, 9, 0]:
-                # start a new sublist if it is a new cell
-                if last_digit == 7:
+                # The following lines list the vertices of the grid cell
+                if last_digit in [7, 8, 9, 0]:
+                    # start a new sublist if it is a new cell
+                    if last_digit == 7:
+                        grid.append([])
+                    # append the items to the sublist
+                    grid[cell].append(line)
+
+                    # this tells us we have finished logging the cell vertices
+                    if last_digit == 0:
+                        cell += 1
+
+            elif photometry_type == 'm':
+                # there will only be data on line 5 if photometry is manual
+                if ln_cnt == 5:
+                    print('Line 5 says: {}'.format(line))
+                    data.append(line)
+
+                # vertices are in some irregular shape, maybe more than 4
+                if ln_cnt >= 7:
                     grid.append([])
-                # append the items to the sublist
-                grid[cell].append(line)
-                # signify that we have finished logging the grid cell vertices
-                if last_digit == 0:
-                    cell += 1
+                    grid[cell].append(line)
+
             ln_cnt += 1
 
     # Construct data display table =============================================
 
     # Headers of the table/dataframe
-    big_table = [['Counts', 'Area(pixels)', 'Flux', 'v1', 'v2', 'v3', 'v4']]
+    if photometry_type.lower() == 'g':
+        big_table = [['Counts', 'Area(pixels)', 'Flux', 'v1', 'v2', 'v3', 'v4']]
+    elif photometry_type.lower() == 'm':
+        big_table = [['Counts', 'Area(pixels)', 'Flux', 'vertices']]
 
     for e1, e2 in zip(data, grid):
         datum = e1.split()
+
         del datum[-1]  # gets rid of junk characters added to the line
         datum = datum[:3]   # extract useful info only (counts, area, flux)
         datum = [float(i) for i in datum]
 
         # appends vertices in neat ordered-pair format
-        for el in e2:
-            # witchcraft to append a list of floats for the coordinates
-            datum.append([float(i) for i in el.strip().split()[:2]])
+        if photometry_type.lower() == 'g':
+            for el in e2:
+                # witchcraft to append a list of floats for the coordinates
+                datum.append([float(i) for i in el.strip().split()[:2]])
+        elif photometry_type.lower() == 'm':
+            datum.append(e2)
 
         # Subtract off the camera bias ((faulty counts per px) * area) from the
         # counts, which is datum[0]
@@ -129,7 +143,7 @@ def make_dataframe(phot_file, img_file):
     return df, img_metadata
 
 
-def get_flux_ratio(imgs, photfiles, zp_b, zp_v):
+def get_flux_ratio(imgs, photfiles, zp_pair):
     """
     Generates flux ratio dataframes given a pair of images and their
     photometry files.
@@ -171,6 +185,8 @@ def get_flux_ratio(imgs, photfiles, zp_b, zp_v):
     img_fileV = imgs[1]
     phot_fileB = photfiles[0]
     phot_fileV = photfiles[1]
+    zp_b = zp_pair[0]
+    zp_v = zp_pair[1]
 
     print('Sending in: \n {} and \n {}'.format(phot_fileB, phot_fileV))
 
@@ -187,13 +203,20 @@ def get_flux_ratio(imgs, photfiles, zp_b, zp_v):
     to_mag_b = lambda x: -2.5 * log10(x) + zp_b
     to_mag_v = lambda x: -2.5 * log10(x) + zp_v
 
-    dfB['flux'] = dfB['flux'].apply(to_mag_b)
-    dfV['flux'] = dfV['flux'].apply(to_mag_v)
+    dfB['Flux'] = dfB['Flux'].apply(to_mag_b)
+    dfV['Flux'] = dfV['Flux'].apply(to_mag_v)
 
-    # Calculate flux ratio of images. Vertices from either dataframe since they
-    # are the same
-    B_V_df = DataFrame({'B-V': dfB['Flux'] - dfV['Flux'], 'v1': dfV['v1'],
-                        'v2': dfV['v2'], 'v3': dfV['v3'], 'v4': dfV['v4']})
+    # Make the B-V dataframe. Maintain vertex columns without knowing how
+    # many there are or what they are called.
+    B_V_df = dfB.copy(deep=True)  # make copy of one of the dfs to get cols
+    del B_V_df['Counts']          # delete unnecessary cols
+    del B_V_df['Area(pixels)']
+    B_V_df.rename(columns={'Flux': 'B-V'}, inplace=True)
+    B_V_df['Flux'] = dfB['Flux'] - dfV['Flux']
+
+
+    # B_V_df = DataFrame({'B-V': dfB['Flux'] - dfV['Flux'], 'v1': dfV['v1'],
+    #                     'v2': dfV['v2'], 'v3': dfV['v3'], 'v4': dfV['v4']})
 
     return B_V_df, img_metadataV, img_metadataB
 
@@ -215,71 +238,79 @@ paths = []
 img_paths = []
 phot_paths = []
 
+# manual or gridded photometry; use info to construct string to search for to
+#  find photometry files
+photometry_type = raw_input('Is photometry [m]anual or [g]ridded?: ')
+
+if photometry_type.lower() == 'm':
+    phot_str_end = 'manual$'
+elif photometry_type.lower() == 'g':
+    phot_str_end = '([0-9]){1,3}[x]([0-9]){1,3}$'
+else:
+    while photometry_type.lower() not in ['m', 'g']:
+        photometry_type = raw_input('Is photometry [m]anual or [g]ridded?: ')
+
+
 # Collect a list of folders containing images, image paths and photometry paths
 for (dirpath, dirnames, files) in os.walk(mypath):
     for file in files:
         if file.endswith('.FIT'):     # store image path
             img_paths.append(dirpath + '/' + file)
         else:
-            regex_result = re.search(r'([0-9]){1,3}[x]([0-9]){1,3}$', file)
+            regex_result = re.search(phot_str_end, file)
             if regex_result is not None:
                 phot_paths.append(dirpath + '/' + file)
 
-print('WHAT WE HAVE TO MAKE PAIRS OF....')
-print(img_paths)
-print(phot_paths)
-
-# Generate combinations of filters
-img_pairs = []   # img pairs, list of tuples: [(img1, img2), (img1, img3)...]
-phot_pairs = []  # associated photometry files in same format
-
-#TODO: NEW WAYS TO GENERATE PAIRS
-
+# Generate pairs of the form [blue, visual]; total is len(blues) * len(visuals)
 blues = ['47', '82a', 'LRGBblue', 'LRGBluminance']
 visuals = ['11', '15', 'LRGBred', 'LRGBgreen']
 combos = list(itertools.product(blues, visuals))
 
-# make empty lists to store image pairs and photometry pairs
-img_path_pairs = [['', ''] for i in range(len(combos))]
-phot_path_pairs = [['', ''] for i in range(len(combos))]
+# Collect the zero points in the same format for when we make the dataframe
+zps = [list(i) for i in combos]
 
+for combo in zps:
+    combo[0] = ZP_DICT[combo[0]]
+    combo[1] = ZP_DICT[combo[1]]
+
+# make empty lists to store pairs of image or photometry paths. format:
+# [[blue1, visual1], [blue1, visual2]...]
+img_pairs = [['', ''] for i in range(len(combos))]
+phot_pairs = [['', ''] for i in range(len(combos))]
+
+# Step through the empty pair lists and populate them
 counter = 0
 for combo in combos:
     for i, p in zip(img_paths, phot_paths):
+        # looks in image path and photometry file path for a the blue filter
         b_match_img = re.search('/{}/'.format(combo[0]), i)
         b_match_phot = re.search('/{}/'.format(combo[0]), p)
+
+        # looks in image path and photometry file path for a the visual filter
         v_match_img = re.search('/{}/'.format(combo[1]), i)
         v_match_phot = re.search('/{}/'.format(combo[1]), p)
 
+        # populates lists with pairs of image paths and photometry paths in
+        # format [blue, visual]
         if (b_match_img is not None) and (b_match_phot is not None):
-            img_path_pairs[counter][0] = i
-            phot_path_pairs[counter][0] = p
+            img_pairs[counter][0] = i
+            phot_pairs[counter][0] = p
         if (v_match_img is not None) and (v_match_phot is not None):
-            img_path_pairs[counter][1] = i
-            phot_path_pairs[counter][1] = p
+            img_pairs[counter][1] = i
+            phot_pairs[counter][1] = p
         else:
             continue
     counter += 1
 
-#TODO: stuff below is old stuff that is being fixed above---------
-# Finds pairs of images and stores that pair along with the associated
-# photometry files.
-# for s1, s2 in zip(perm(img_paths, 2), perm(phot_paths, 2)):
-#     img_pairs.append(s1)
-#     phot_pairs.append(s2)
-#
-# print('Total pairs: {}'.format(len(img_pairs)))
-# count = 0
-
-# TODO: make a dictionary that includes the path lists and associated zero pts
+counter = 0
 # Iterate through pairs
-for p1, p2 in zip(img_pairs, phot_pairs):
-    print('Processing pair {}/{}'.format(count, img_pairs))
-    BVdf, metadataV, metadataB = get_flux_ratio(p1, p2)  #TODO put zero points
+for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
+    print('Processing pair {}/{}'.format(count, len(zps)))
+    BVdf, metadataV, metadataB = get_flux_ratio(imgs, phots, zp)
     BVdf.replace([np.inf, -np.inf], np.nan)    # set any "inf" values to NaN
 
     # Write dataframe to CSV. NaN is represented as -9999
     fname = '{}B-V_{}-{}.csv'.format(mypath, metadataB['filter1'],
                                      metadataV['filter1'])
     BVdf.to_csv(path_or_buf=fname, encoding='utf-8', na_rep='-9999')
-    count += 1
+    counter += 1
