@@ -59,17 +59,17 @@ def make_dataframe(phot_file, pt):
             if ln_cnt == 3:
                 msky = float(line.split()[0])  # gets magnitude of sky
                 sigma = float(line.split()[1])  # gets sigma
-                print('Found msky and sigma: {} and {}'.format(msky, sigma))
+                #print('Found msky and sigma: {} and {}'.format(msky, sigma))
             if ln_cnt == 4:
                 filter1 = line.split()[2].split(',')[0]
                 filter2 = line.split()[2].split(',')[1]
-                print('Found filters: {}, {}'.format(filter1, filter2))
+                #print('Found filters: {}, {}'.format(filter1, filter2))
             if ln_cnt == 6:
                 gridsize = line.split()[0]
                 img_metadata = {'msky': msky, 'sigma': sigma, 'filter1': filter1,
                                 'filter2': filter2, 'gridsize': gridsize}
-                print('Found gridsize and assigned img_metadata: {}'.format(
-                    img_metadata))
+                #print('Found gridsize and assigned img_metadata: {}'.format(
+                #    img_metadata))
 
             if pt == 'g':
                 # check what the last digit of the line number is
@@ -127,11 +127,8 @@ def make_dataframe(phot_file, pt):
         elif pt == 'm':
             datum.append(e2)
 
-        # Subtract off the camera bias ((faulty counts per px) * area) from the
-        # counts, which is datum[0]
-        #TODO -- changed to datum[2] on April 25 because I was using counts (
-        # which includes sky) instead of flux. Is bias still being subtracted
-        #  correctly?
+        # Subtract off the camera bias ((bias counts per px) * area) from the
+        # flux, which is datum[2]
         datum[2] -= BIAS * datum[1]
 
         # add data and vertices to a big table
@@ -143,7 +140,7 @@ def make_dataframe(phot_file, pt):
     return df, img_metadata
 
 
-def get_flux_ratio(imgs, photfiles, zp_pair, pt):
+def get_flux_ratio(photfiles, zp_pair, pt):
     """
     Generates flux ratio dataframes given a pair of images and their
     photometry files.
@@ -182,8 +179,6 @@ def get_flux_ratio(imgs, photfiles, zp_pair, pt):
     # phot_fileB = img_fileB[:-4] + '_photometry_' + size
     #
     # print('Comparing images: {} \n and \n {}(#2)'.format(img_fileV, img_fileB))
-    img_fileB = imgs[0]
-    img_fileV = imgs[1]
     phot_fileB = photfiles[0]
     phot_fileV = photfiles[1]
     zp_b = zp_pair[0]
@@ -193,8 +188,8 @@ def get_flux_ratio(imgs, photfiles, zp_pair, pt):
 
     # Get the tidy flux counts for the B and V filters--these are not yet B
     # or V magnitudes, they are still fluxes!
-    dfB, img_metadataB = make_dataframe(phot_fileB, img_fileB, pt)
-    dfV, img_metadataV = make_dataframe(phot_fileV, img_fileV, pt)
+    dfB, img_metadataB = make_dataframe(phot_fileB, pt)
+    dfV, img_metadataV = make_dataframe(phot_fileV, pt)
 
     # ==========================================================================
     # CALCULATE THE FLUX RATIOS
@@ -203,6 +198,15 @@ def get_flux_ratio(imgs, photfiles, zp_pair, pt):
     # Convert the dataframe information to magnitudes in B and V
     to_mag_b = lambda x: -2.5 * log10(x) + zp_b
     to_mag_v = lambda x: -2.5 * log10(x) + zp_v
+
+    # TODO: rerun calc with manual phot, now that these lines are commented out
+    # dfB = dfB[dfB['Flux'] != 0]
+    # dfV = dfV[dfV['Flux'] != 0]
+
+    # TODO: are these lines optional? Re-run calculation with manual
+    # photometry now that these are commented out
+    # dfB = dfB[dfB['Flux'] >= 0]
+    # dfV = dfV[dfV['Flux'] >= 0]
 
     dfB['Flux'] = dfB['Flux'].apply(to_mag_b)
     dfV['Flux'] = dfV['Flux'].apply(to_mag_v)
@@ -213,11 +217,7 @@ def get_flux_ratio(imgs, photfiles, zp_pair, pt):
     del B_V_df['Counts']          # delete unnecessary cols
     del B_V_df['Area(pixels)']
     B_V_df.rename(columns={'Flux': 'B-V'}, inplace=True)
-    B_V_df['Flux'] = dfB['Flux'] - dfV['Flux']
-
-
-    # B_V_df = DataFrame({'B-V': dfB['Flux'] - dfV['Flux'], 'v1': dfV['v1'],
-    #                     'v2': dfV['v2'], 'v3': dfV['v3'], 'v4': dfV['v4']})
+    B_V_df['B-V'] = dfB['Flux'] - dfV['Flux']
 
     return B_V_df, img_metadataV, img_metadataB
 
@@ -305,12 +305,11 @@ for combo in combos:
 
 counter = 0
 
-#TODO: output of the csv files is fucked up. Fix it.
 # Iterate through pairs and retrieve B-V dataframes.
 for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
     print('Processing pair {}/{}'.format(counter, len(zps)))
 
-    BVdf, metadataV, metadataB = get_flux_ratio(imgs, phots, zp, pt)
+    BVdf, metadataV, metadataB = get_flux_ratio(phots, zp, pt)
     BVdf.replace([np.inf, -np.inf], np.nan)    # set any "inf" values to NaN
 
     # Write dataframe to CSV. NaN is represented as -9999
