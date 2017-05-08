@@ -8,8 +8,7 @@
 # Uses files_and_params.txt (a summary of various images and their sky
 # values, etc) to calculate photometry for many images at once. Photometry
 # files are stored in the same folder as their parent image.
-# To use, enter a Python session in the terminal, import all functions and
-# then call the function do_photometry() with no arguments.
+# To use, run in the terminal.
 # ============================================================================ #
 
 
@@ -82,6 +81,7 @@ def do_photometry():
 
     from pyraf import iraf
     from os import walk
+    import re
 
     # Retrieves image parameters from a stored file ----------------------------
     image_data, lognames = prepare_params()
@@ -106,7 +106,9 @@ def do_photometry():
         print(gfile)
 
     gsize = raw_input('Enter the grid size to use (ex: 10x10): ')
-    area = int(gsize[0:2]) * int(gsize[3:])
+    dim1 = re.search('[0-9]+(?=x)', gsize).group(0)
+    dim2 = re.search('(?<=x)[0-9]+', gsize).group(0)
+    area = int(dim1) * int(dim2)
 
     # adjust lognames if grid size is not 10x10 to avoid overwriting files
     if gsize != '10x10':
@@ -149,3 +151,5 @@ def do_photometry():
     print('Photometry complete!')
 
     return None
+
+do_photometry()

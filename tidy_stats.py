@@ -10,9 +10,7 @@
 # median sky background values and sigmas.
 # Produces a text file called files_and_params.txt which summarizes all the
 # images in the set.
-# To use, enter a Python session in terminal and import all functions. Then
-# call the function summarize_set(path), where path is some path containing
-# folders of images.
+# To use, call at the terminal.
 # ============================================================================ #
 
 
@@ -161,3 +159,7 @@ def summarize_set(mypath):
                                  second_filter, fdir))
 
     output.close()
+
+path = raw_input('Enter the path to the dated image folder: ')
+
+summarize_set(path)
