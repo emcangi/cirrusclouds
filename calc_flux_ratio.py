@@ -16,7 +16,7 @@ from pandas import DataFrame
 import numpy as np
 import itertools
 import re
-from math import log10
+from math import log10, log, sqrt
 
 # Camera bias: Determined empirically. Faulty counts per pixel.
 BIAS = 0.1875  # Orion Starshoot All-in-one camera
@@ -29,6 +29,8 @@ def make_dataframe(phot_file, pt):
     """
     For a given image and its photometry file, this function analyzes the
     photometry file to create a tidy Pandas data frame.
+
+    CALLED BY: get_flux_ratio()
 
     :param phot_file: a file containing photometry for img_file
     :param pt: photometry type. 'm' = manual, 'g' = gridded
@@ -48,6 +50,20 @@ def make_dataframe(phot_file, pt):
     grid = []   # stores cell vertices for a particular counts datum
     cell = 0    # keeps track of which cell we are on; order is how the cells
                 # appear in the photometry file.
+
+
+    # Find the count error from the files_and_params.txt file ------------------
+    timestamp = re.search('(?<=sec\/).+(?=_pho)', phot_file).group(0)
+    date = re.search('(\d+[A-Za-z]+\d+)', photfile).group(0)
+    paramfilepath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
+                    '/NewCamera/{}/files_and_params.txt'
+
+    with open(paramfilepath.format(date), 'r') as f:
+        stuff = f.readlines()
+        stuff = [i.split('\t') for i in stuff if i != '\n']
+    for s in stuff:
+        if timestamp in s[0]:
+            err = float(s[3])
 
     #TODO: Make next block a heckin lot more elegant...
     # Loops through the photometry file lines and collects data ================
@@ -108,9 +124,11 @@ def make_dataframe(phot_file, pt):
 
     # Headers of the table/dataframe
     if pt == 'g':
-        big_table = [['Counts', 'Area(pixels)', 'Flux', 'v1', 'v2', 'v3', 'v4']]
+        big_table = [['Counts', 'Area(pixels)', 'Flux', 'CellErr',
+                      'MagErr', 'v1', 'v2', 'v3', 'v4']]
     elif pt == 'm':
-        big_table = [['Counts', 'Area(pixels)', 'Flux', 'vertices']]
+        big_table = [['Counts', 'Area(pixels)', 'Flux', 'CellErr', 'MagErr',
+                      'vertices']]
 
     for e1, e2 in zip(data, grid):
         datum = e1.split()
@@ -118,6 +136,8 @@ def make_dataframe(phot_file, pt):
         del datum[-1]  # gets rid of junk characters added to the line
         datum = datum[:3]   # extract useful info only (counts, area, flux)
         datum = [float(i) for i in datum]
+        datum.append(err * datum[1])  # append a field with Cell Count Error
+        datum.append(-99)  # field for the magnitude error
 
         # appends vertices in neat ordered-pair format
         if pt == 'g':
@@ -144,6 +164,8 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     """
     Generates flux ratio dataframes given a pair of images and their
     photometry files.
+
+    CALLED BY: main logic
 
     :param imgs: A list of tuples, each storing a pair of image file paths
     :param photfiles: Photometry files associated with imgs
@@ -199,6 +221,10 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     to_mag_b = lambda x: -2.5 * log10(x) + zp_b
     to_mag_v = lambda x: -2.5 * log10(x) + zp_v
 
+    # TODO: make sure this works
+    dfB['MagErr'] = (-2.5 * (dfB['CellErr'])) / (dfB['Flux'] * log(10))
+    dfV['MagErr'] = (-2.5 * (dfV['CellErr'])) / (dfV['Flux'] * log(10))
+
     # TODO: rerun calc with manual phot, now that these lines are commented out
     # dfB = dfB[dfB['Flux'] != 0]
     # dfV = dfV[dfV['Flux'] != 0]
@@ -218,6 +244,7 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     del B_V_df['Area(pixels)']
     B_V_df.rename(columns={'Flux': 'B-V'}, inplace=True)
     B_V_df['B-V'] = dfB['Flux'] - dfV['Flux']
+    B_V_df['MagErr'] = sqrt(dfB['MagErr']**2 + dfV['MagErr']**2) #TODO: check
 
     return B_V_df, img_metadataV, img_metadataB
 
