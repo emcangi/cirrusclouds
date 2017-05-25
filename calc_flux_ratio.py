@@ -27,14 +27,15 @@ ZP_DICT = {'11': -1.24, '15': -1.67, '47': -3.74, '82a': 0.13, 'LRGBred': -2.48,
 
 def make_dataframe(phot_file, pt):
     """
-    For a given image and its photometry file, this function analyzes the
-    photometry file to create a tidy Pandas data frame.
+    Analyzes the photometry file of a single image to create a tidy Pandas data
+    frame that displays the B-V index, count error per cell, and error in B-V
+    index.
 
     CALLED BY: get_flux_ratio()
 
     :param phot_file: a file containing photometry for img_file
     :param pt: photometry type. 'm' = manual, 'g' = gridded
-    :return: a Pandas dataframe of photometry data
+    :return: a Pandas dataframe displaying B-V, count error/cell and B-V error
     """
 
     # Copy polyphot data to new file without headers --------------------------
@@ -126,7 +127,7 @@ def make_dataframe(phot_file, pt):
         big_table = [['Counts', 'Area(pixels)', 'Flux', 'CellErr',
                       'MagErr', 'v1', 'v2', 'v3', 'v4']]
     elif pt == 'm':
-        big_table = [['Counts', 'Area(pixels)', 'Flux', 'CellErr', 'MagErr',
+        big_table = [['Counts', 'Area(pixels)', 'Flux', 'CellErr', 'Err',
                       'vertices']]
 
     for e1, e2 in zip(data, grid):
@@ -177,7 +178,7 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     zp_b = zp_pair[0]
     zp_v = zp_pair[1]
 
-    print('Sending in: \n {} and \n {}'.format(phot_fileB, phot_fileV))
+    # print('Sending in: \n {} and \n {}'.format(phot_fileB, phot_fileV))
 
     # Get the tidy flux counts for the B and V filters--these are not yet B
     # or V magnitudes, they are still fluxes!
@@ -192,8 +193,8 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     to_mag_b = lambda x: -2.5 * log10(x) + zp_b
     to_mag_v = lambda x: -2.5 * log10(x) + zp_v
 
-    dfB['MagErr'] = (-2.5 * (dfB['CellErr'])) / (dfB['Flux'] * log(10))
-    dfV['MagErr'] = (-2.5 * (dfV['CellErr'])) / (dfV['Flux'] * log(10))
+    dfB['Err'] = (-2.5 * (dfB['CellErr'])) / (dfB['Flux'] * log(10))
+    dfV['Err'] = (-2.5 * (dfV['CellErr'])) / (dfV['Flux'] * log(10))
 
     # TODO: rerun calc with manual phot, now that these lines are commented out
     # dfB = dfB[dfB['Flux'] != 0]
@@ -213,8 +214,9 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     del B_V_df['Counts']          # delete unnecessary cols
     del B_V_df['Area(pixels)']
     B_V_df.rename(columns={'Flux': 'B-V'}, inplace=True)
+    B_V_df.rename(columns={'Err': 'BVErr'}, inplace=True)
     B_V_df['B-V'] = dfB['Flux'] - dfV['Flux']
-    B_V_df['MagErr'] = sqrt(dfB['MagErr']**2 + dfV['MagErr']**2) #TODO: check
+    B_V_df['BVErr'] = sqrt(dfB['Err']**2 + dfV['Err']**2) #TODO: check
 
     return B_V_df, img_metadataV, img_metadataB
 
