@@ -51,10 +51,9 @@ def make_dataframe(phot_file, pt):
     cell = 0    # keeps track of which cell we are on; order is how the cells
                 # appear in the photometry file.
 
-
     # Find the count error from the files_and_params.txt file ------------------
     timestamp = re.search('(?<=sec\/).+(?=_pho)', phot_file).group(0)
-    date = re.search('(\d+[A-Za-z]+\d+)', photfile).group(0)
+    date = re.search('(\d+[A-Za-z]+.+)(?=\/s)', phot_file).group(0)
     paramfilepath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
                     '/NewCamera/{}/files_and_params.txt'
 
@@ -75,16 +74,17 @@ def make_dataframe(phot_file, pt):
             if ln_cnt == 3:
                 msky = float(line.split()[0])  # gets magnitude of sky
                 sigma = float(line.split()[1])  # gets sigma
-                #print('Found msky and sigma: {} and {}'.format(msky, sigma))
+                # print('Found msky and sigma: {} and {}'.format(msky, sigma))
             if ln_cnt == 4:
                 filter1 = line.split()[2].split(',')[0]
                 filter2 = line.split()[2].split(',')[1]
-                #print('Found filters: {}, {}'.format(filter1, filter2))
+                # print('Found filters: {}, {}'.format(filter1, filter2))
             if ln_cnt == 6:
                 gridsize = line.split()[0]
-                img_metadata = {'msky': msky, 'sigma': sigma, 'filter1': filter1,
-                                'filter2': filter2, 'gridsize': gridsize}
-                #print('Found gridsize and assigned img_metadata: {}'.format(
+                img_metadata = {'msky': msky, 'sigma': sigma, 'filter1':
+                                filter1, 'filter2': filter2, 'gridsize':
+                                gridsize}
+                # print('Found gridsize and assigned img_metadata: {}'.format(
                 #    img_metadata))
 
             if pt == 'g':
@@ -110,7 +110,6 @@ def make_dataframe(phot_file, pt):
             elif pt == 'm':
                 # there will only be data on line 5 if photometry is manual
                 if ln_cnt == 5:
-                    print('Line 5 says: {}'.format(line))
                     data.append(line)
 
                 # vertices are in some irregular shape, maybe more than 4
@@ -167,40 +166,12 @@ def get_flux_ratio(photfiles, zp_pair, pt):
 
     CALLED BY: main logic
 
-    :param imgs: A list of tuples, each storing a pair of image file paths
     :param photfiles: Photometry files associated with imgs
+    :param zp_pair: zero points for the filters being examined in these images
     :param pt: photometry type. 'm' = manual, 'g' = gridded
     :return:
     """
 
-    # ==========================================================================
-    # GET IMAGE FILES TO WORK ON
-    # ==========================================================================
-    # default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
-    # print('Current default base path is {}\n'.format(default))
-    #
-    # dir_extV = raw_input('Please enter the directory(ies) housing the first image '
-    #                      'and photometry file (e.g. '
-    #                      '28October2016/15-11/260microsec): ')
-    # dir_extB = raw_input('Please enter the directory(ies) housing the second image '
-    #                      'and photometry file (e.g. '
-    #                      '28October2016/15-11/260microsec): ')
-    #
-    # imgV = raw_input('First image file name: ')
-    # imgB = raw_input('Second image file name: ')
-    # size = '64x64'#raw_input('Please input the photometry grid size (e.g. 64x64): ')
-    # pathV = '/'.join([default, dir_extV])
-    # pathB = '/'.join([default, dir_extB])
-    # pathV += '/'
-    # pathB += '/'
-    #
-    # # Identify the image files and associated photometry files
-    # img_fileV = pathV + imgV if imgV[-4:] == '.FIT' else pathV + imgV + '.FIT'
-    # img_fileB = pathB + imgB if imgB[-4:] == '.FIT' else pathB + imgB + '.FIT'
-    # phot_fileV = img_fileV[:-4] + '_photometry_' + size
-    # phot_fileB = img_fileB[:-4] + '_photometry_' + size
-    #
-    # print('Comparing images: {} \n and \n {}(#2)'.format(img_fileV, img_fileB))
     phot_fileB = photfiles[0]
     phot_fileV = photfiles[1]
     zp_b = zp_pair[0]
@@ -214,14 +185,13 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     dfV, img_metadataV = make_dataframe(phot_fileV, pt)
 
     # ==========================================================================
-    # CALCULATE THE FLUX RATIOS
+    # CALCULATE THE FLUX RATIOS AND B-V INDICES
     # ==========================================================================
 
     # Convert the dataframe information to magnitudes in B and V
     to_mag_b = lambda x: -2.5 * log10(x) + zp_b
     to_mag_v = lambda x: -2.5 * log10(x) + zp_v
 
-    # TODO: make sure this works
     dfB['MagErr'] = (-2.5 * (dfB['CellErr'])) / (dfB['Flux'] * log(10))
     dfV['MagErr'] = (-2.5 * (dfV['CellErr'])) / (dfV['Flux'] * log(10))
 
@@ -280,6 +250,7 @@ else:
         pt = photometry_type.lower()
 
 # Collect a list of folders containing images, image paths and photometry paths
+
 for (dirpath, dirnames, files) in os.walk(mypath):
     for file in files:
         if file.endswith('.FIT'):     # store image path
