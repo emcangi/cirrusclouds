@@ -41,7 +41,7 @@ def get_bg(means, stds, image):
     # find sky value, associated sigma and error in the sky value.
     skyval = median(means)
     # toggle the following line if dealing with camera bias files only!
-    #skyval = max(means)
+    # skyval = max(means)
     try:
         sigma = stds[means.index(skyval)]
     except ValueError:
@@ -77,11 +77,11 @@ def summarize_set(mypath):
     # Collect a list of files which contain pixel statistics -------------------
     for (dirpath, dirnames, files) in walk(mypath):
         for file in files:
-            if file.endswith('_sky'):
+            if file.endswith('_sky') or file.endswith('_sky.txt'):
                 full_file_paths.append(dirpath + '/' + file)
                 file_parent_dirs.append(dirpath + '/')
 
-    print('Using these files: {}'.format(full_file_paths))
+    # print('Using these files: {}'.format(full_file_paths))
 
     # Establish the output file for finalizing the sky values ------------------
     output = open('files_and_params.txt', 'w')
@@ -108,15 +108,19 @@ def summarize_set(mypath):
         # Extract the filter combination
         possfilters = ['11', '15', '47', '82a', 'None', 'LRGBred', 'LRGBgreen',
                        'LRGBblue', 'LRGBluminance']
+
+        print('Now finding the filters')
         bpfilter = None
         while bpfilter is None:
             for fil in possfilters:
                 try:
-                    bpfilter = re.search(fil, fpath).group(0)
+                    bpfilter = re.search(fil, fpath, re.IGNORECASE).group(0)
                 except AttributeError:
                     continue
         second_filter = 'None'  # TODO: maybe add support for 2 filters.
+        print('Done with filters')
 
+        print('Now finding the exposure time')
         # Extract the exposure time:
         # regex 1st expression: devil magic I found on stackexchange to
         # match floating point numbers that also could sometimes be integers
@@ -133,30 +137,41 @@ def summarize_set(mypath):
                     'microsec': 1 * 10 ** (-6), 'nanosec': 1 * 10 ** (-9),
                     'picosec' : 1 * 10 ** (-12), 'femtosec': 1 * 10 ** (-15)}
         exp = round(val * unit_key[unit], 6)
+        print('Done with exposure time')
 
+        print('Now get the stats')
         # START WORKING ON STATISTICS IN FILE ----------------------------------
         with open(fpath, 'r') as f:
             lines = f.readlines()
 
         # Get rid of extraneous lines created by pyRAF that we don't need
-        for L in ['\n', 'all_m_stats \n',
-                  'SLICE   NPIX   MEAN   STD   MEDIAN   MIN   MAX\n']:
-            while L in lines:
-                lines.remove(L)
+        # for L in ['_run_imexam \n', '\n', 'all_m_stats \n', 'real_m_stats \n',
+        #           'SLICE   NPIX   MEAN   STD   MEDIAN   MIN   MAX\n']:
+        #     while L in lines:
+        #         lines.remove(L)
 
         means = []
         stds = []
 
         # ITERATE THROUGH STATISTICS -------------------------------------------
         for line in lines:
-            data = line.strip('\n').split()  # Clean up the line
-            means.append(data[2])            # Get the mean sky value
-            stds.append(data[3])             # And its associated st dev
+            # if line.startswith('Current'):
+            #     continue
+            if line.startswith('['):
+                data = line.strip('\n').split()  # Clean up the line
+                means.append(data[2])            # Get the mean sky value
+                stds.append(data[3])             # And its associated st dev
+            else:
+                continue
 
+        print('Done with stats')
+        print('Now write the stuff out')
         # summarize the stats and write to the output file
         skybg, sigma, bgerr = get_bg(means, stds, image)
         output.write(wstr.format(image, skybg, sigma, bgerr, exp, bpfilter,
                                  second_filter, fdir))
+        print('Done writing, next file...')
+        print
 
     output.close()
 
