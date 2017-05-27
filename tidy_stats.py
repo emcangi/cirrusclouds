@@ -84,7 +84,7 @@ def summarize_set(mypath):
     # print('Using these files: {}'.format(full_file_paths))
 
     # Establish the output file for finalizing the sky values ------------------
-    output = open('files_and_params.txt', 'w')
+    output = open(mypath+'/files_and_params.txt', 'w')
     output.write('# IMAGE \t SKY VAL \t SIGMA \t SKYVAL ERR \t EXPOSURE \t '
                  'FILTER 1 \t FILTER 2 \t PATH\n')
     wstr = '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'
@@ -109,18 +109,21 @@ def summarize_set(mypath):
         possfilters = ['11', '15', '47', '82a', 'None', 'LRGBred', 'LRGBgreen',
                        'LRGBblue', 'LRGBluminance']
 
-        print('Now finding the filters')
-        bpfilter = None
-        while bpfilter is None:
-            for fil in possfilters:
-                try:
-                    bpfilter = re.search(fil, fpath, re.IGNORECASE).group(0)
-                except AttributeError:
-                    continue
-        second_filter = 'None'  # TODO: maybe add support for 2 filters.
-        print('Done with filters')
+        # print('Now finding the filters')
+        # print('file path: {}'.format(fpath))
+        for fil in possfilters:
+            try:
+                searchstr = '((?<=\/){}(?=\/))'.format(fil)
+                bpfilter = re.search(searchstr, fpath,
+                                     re.IGNORECASE).group(0)
+                break
+            except AttributeError:
+                continue
 
-        print('Now finding the exposure time')
+        second_filter = 'None'  # TODO: maybe add support for 2 filters.
+        # print('Done with filters')
+
+        # print('Now finding the exposure time')
         # Extract the exposure time:
         # regex 1st expression: devil magic I found on stackexchange to
         # match floating point numbers that also could sometimes be integers
@@ -137,9 +140,9 @@ def summarize_set(mypath):
                     'microsec': 1 * 10 ** (-6), 'nanosec': 1 * 10 ** (-9),
                     'picosec' : 1 * 10 ** (-12), 'femtosec': 1 * 10 ** (-15)}
         exp = round(val * unit_key[unit], 6)
-        print('Done with exposure time')
+        # print('Done with exposure time')
 
-        print('Now get the stats')
+        # print('Now get the stats')
         # START WORKING ON STATISTICS IN FILE ----------------------------------
         with open(fpath, 'r') as f:
             lines = f.readlines()
@@ -164,14 +167,14 @@ def summarize_set(mypath):
             else:
                 continue
 
-        print('Done with stats')
-        print('Now write the stuff out')
+        # print('Done with stats')
+        # print('Now write the stuff out')
         # summarize the stats and write to the output file
         skybg, sigma, bgerr = get_bg(means, stds, image)
         output.write(wstr.format(image, skybg, sigma, bgerr, exp, bpfilter,
                                  second_filter, fdir))
-        print('Done writing, next file...')
-        print
+        # print('Done writing, next file...')
+        # print
 
     output.close()
 
