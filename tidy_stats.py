@@ -84,6 +84,7 @@ def summarize_set(mypath):
     # print('Using these files: {}'.format(full_file_paths))
 
     # Establish the output file for finalizing the sky values ------------------
+    print(mypath)
     output = open(mypath+'/files_and_params.txt', 'w')
     output.write('# IMAGE \t SKY VAL \t SIGMA \t SKYVAL ERR \t EXPOSURE \t '
                  'FILTER 1 \t FILTER 2 \t PATH\n')

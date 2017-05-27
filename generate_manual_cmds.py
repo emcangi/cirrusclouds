@@ -68,5 +68,5 @@ writepath = thepath+setkey+fn
 import pickle
 with open(writepath.format(dated_folder, date, set_input), 'w') as f:
     for cmd in cmds_sort:
-        f.write(cmd)
+        f.write(cmd + '\n')
 
