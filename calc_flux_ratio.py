@@ -153,7 +153,6 @@ def make_dataframe(phot_file, pt):
 
         # add data and vertices to a big table
         big_table.append(datum)
-
     # Make a Pandas dataframe ==================================================
     headers = big_table[0]
     df = DataFrame(big_table[1:], columns=headers)
@@ -182,8 +181,12 @@ def get_flux_ratio(photfiles, zp_pair, pt):
 
     # Get the tidy flux counts for the B and V filters--these are not yet B
     # or V magnitudes, they are still fluxes!
+    print('trying to run make_dataframe')
     dfB, img_metadataB = make_dataframe(phot_fileB, pt)
+    print('B ok')
     dfV, img_metadataV = make_dataframe(phot_fileV, pt)
+    print('V ok')
+    print('successfully ran make_dataframe')
 
     # ==========================================================================
     # CALCULATE THE FLUX RATIOS AND B-V INDICES
@@ -225,7 +228,7 @@ def get_flux_ratio(photfiles, zp_pair, pt):
 
 # Get the main folder to operate on. Should be a folder containing
 # filter-titled folders
-folder = raw_input('Please input the main folder to operate on, '
+folder = raw_input('Please raw_input the main folder to operate on, '
                    'e.g. 11February2017_MOON/set1. Should contain folders each '
                    'named for a filter: ')
 default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera' \
@@ -283,13 +286,13 @@ phot_pairs = [['', ''] for i in range(len(combos))]
 counter = 0
 for combo in combos:
     for i, p in zip(img_paths, phot_paths):
-        # looks in image path and photometry file path for a the blue filter
-        b_match_img = re.search('/{}/'.format(combo[0]), i)
-        b_match_phot = re.search('/{}/'.format(combo[0]), p)
+        # looks in image path and photometry file path for the blue filter
+        b_match_img = re.search('((?<=\/){}(?=\/))'.format(combo[0]), i)
+        b_match_phot = re.search('((?<=\/){}(?=\/))'.format(combo[0]), p)
 
-        # looks in image path and photometry file path for a the visual filter
-        v_match_img = re.search('/{}/'.format(combo[1]), i)
-        v_match_phot = re.search('/{}/'.format(combo[1]), p)
+        # looks in image path and photometry file path for the visual filter
+        v_match_img = re.search('((?<=\/){}(?=\/))'.format(combo[1]), i)
+        v_match_phot = re.search('((?<=\/){}(?=\/))'.format(combo[1]), p)
 
         # populates lists with pairs of image paths and photometry paths in
         # format [blue, visual]
@@ -303,6 +306,7 @@ for combo in combos:
             continue
     counter += 1
 
+print(img_pairs)
 counter = 0
 
 # Iterate through pairs and retrieve B-V dataframes.
