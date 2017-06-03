@@ -4,7 +4,7 @@
 # ============================================================================ #
 # Eryn Cangi
 # Created 15 January 2017
-# Script #4 of 5 to run
+# Script #4a of 5 to run
 # Calculate the flux ratio of two images given their respective photometry
 # files. Returns the flux ratios by grid cell which can then be plotted as
 # required. This is a batch operation.
@@ -85,8 +85,6 @@ def make_dataframe(phot_file, pt):
                 img_metadata = {'msky': msky, 'sigma': sigma, 'filter1':
                                 filter1, 'filter2': filter2, 'gridsize':
                                 gridsize}
-                # print('Found gridsize and assigned img_metadata: {}'.format(
-                #    img_metadata))
 
             if pt == 'g':
                 # check what the last digit of the line number is
@@ -108,7 +106,7 @@ def make_dataframe(phot_file, pt):
                     if last_digit == 0:
                         cell += 1
 
-            elif pt == 'm':
+            elif pt == 'm':  #TODO: fix this so it can use more than 1 region
                 # there will only be data on line 5 if photometry is manual
                 if ln_cnt == 5:
                     data.append(line)
@@ -137,7 +135,7 @@ def make_dataframe(phot_file, pt):
         datum = datum[:3]   # extract useful info only (counts, area, flux)
         datum = [float(i) for i in datum]
         datum.append(err * datum[1])  # append a field with Cell Count Error
-        datum.append(-99)  # field for the magnitude error
+        datum.append(-99)  # field for the magnitude error. placeholder value.
 
         # appends vertices in neat ordered-pair format
         if pt == 'g':
@@ -150,6 +148,7 @@ def make_dataframe(phot_file, pt):
         # Subtract off the camera bias ((bias counts per px) * area) from the
         # flux, which is datum[2]
         datum[2] -= BIAS * datum[1]
+        # print('flux after subtracting bias: {}'.format(datum[2]))
 
         # add data and vertices to a big table
         big_table.append(datum)
@@ -181,12 +180,12 @@ def get_flux_ratio(photfiles, zp_pair, pt):
 
     # Get the tidy flux counts for the B and V filters--these are not yet B
     # or V magnitudes, they are still fluxes!
-    print('trying to run make_dataframe')
+    # print('trying to run make_dataframe')
     dfB, img_metadataB = make_dataframe(phot_fileB, pt)
-    print('B ok')
+    # print('B ok')
     dfV, img_metadataV = make_dataframe(phot_fileV, pt)
-    print('V ok')
-    print('successfully ran make_dataframe')
+    # print('V ok')
+    # print('successfully ran make_dataframe')
 
     # ==========================================================================
     # CALCULATE THE FLUX RATIOS AND B-V INDICES
@@ -196,6 +195,8 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     to_mag_b = lambda x: -2.5 * log10(x) + zp_b
     to_mag_v = lambda x: -2.5 * log10(x) + zp_v
 
+    # calculate the error of the B-V index. Error is function of flux. Thus
+    # this must be done before we convert the flux to magnitudes.
     dfB['Err'] = (-2.5 * (dfB['CellErr'])) / (dfB['Flux'] * log(10))
     dfV['Err'] = (-2.5 * (dfV['CellErr'])) / (dfV['Flux'] * log(10))
 
@@ -208,20 +209,37 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     # dfB = dfB[dfB['Flux'] >= 0]
     # dfV = dfV[dfV['Flux'] >= 0]
 
-    dfB['Flux'] = dfB['Flux'].apply(to_mag_b)
-    dfV['Flux'] = dfV['Flux'].apply(to_mag_v)
+    failed = False
+    # Convert the flux values to magnitudes
+    try:
+        dfB['Flux'] = dfB['Flux'].apply(to_mag_b)
+    except ValueError:
+        probflux = dfB['Flux']
+        failed = True
+        problemfilter = img_metadataB['filter1']
+
+    try:
+        dfV['Flux'] = dfV['Flux'].apply(to_mag_v)
+    except ValueError:
+        probflux = dfV['Flux']
+        failed = True
+        problemfilter = img_metadataV['filter1']
 
     # Make the B-V dataframe. Maintain vertex columns without knowing how
     # many there are or what they are called.
-    B_V_df = dfB.copy(deep=True)  # make copy of one of the dfs to get cols
-    del B_V_df['Counts']          # delete unnecessary cols
-    del B_V_df['Area(pixels)']
-    B_V_df.rename(columns={'Flux': 'B-V'}, inplace=True)
-    B_V_df.rename(columns={'Err': 'BVErr'}, inplace=True)
-    B_V_df['B-V'] = dfB['Flux'] - dfV['Flux']
-    B_V_df['BVErr'] = sqrt(dfB['Err']**2 + dfV['Err']**2) #TODO: check
-
-    return B_V_df, img_metadataV, img_metadataB
+    if not failed:
+        status = 'OK'
+        B_V_df = dfB.copy(deep=True)  # make copy of one of the dfs to get cols
+        del B_V_df['Counts']          # delete unnecessary cols
+        del B_V_df['Area(pixels)']
+        B_V_df.rename(columns={'Flux': 'B-V'}, inplace=True)
+        B_V_df.rename(columns={'Err': 'BVErr'}, inplace=True)
+        B_V_df['B-V'] = dfB['Flux'] - dfV['Flux']
+        B_V_df['BVErr'] = sqrt(dfB['Err']**2 + dfV['Err']**2) #TODO: check
+        return status, B_V_df, img_metadataV, img_metadataB
+    elif failed:
+        status = 'Fail'
+        return status, None, problemfilter, probflux
 
 
 # BATCH PROCESSING =============================================================
@@ -264,6 +282,10 @@ for (dirpath, dirnames, files) in os.walk(mypath):
             regex_result = re.search(phot_str_end, file)
             if regex_result is not None:
                 phot_paths.append(dirpath + '/' + file)
+# print(img_paths)
+# print(len(img_paths))
+# print(phot_paths)
+# print(len(phot_paths))
 
 # Generate pairs of the form [blue, visual]; total is len(blues) * len(visuals)
 blues = ['47', '82a', 'LRGBblue', 'LRGBluminance']
@@ -271,6 +293,7 @@ visuals = ['11', '15', 'LRGBred', 'LRGBgreen']
 combos = list(itertools.product(blues, visuals))
 
 # Collect the zero points in the same format for when we make the dataframe
+# TODO: does this make sense??
 zps = [list(i) for i in combos]
 
 for combo in zps:
@@ -286,6 +309,7 @@ phot_pairs = [['', ''] for i in range(len(combos))]
 counter = 0
 for combo in combos:
     for i, p in zip(img_paths, phot_paths):
+        # print('looking for {} or {} in \n {}'.format(combo[0], combo[1], i))
         # looks in image path and photometry file path for the blue filter
         b_match_img = re.search('((?<=\/){}(?=\/))'.format(combo[0]), i)
         b_match_phot = re.search('((?<=\/){}(?=\/))'.format(combo[0]), p)
@@ -306,18 +330,19 @@ for combo in combos:
             continue
     counter += 1
 
-print(img_pairs)
+# print(img_pairs)
 counter = 0
 
 # Iterate through pairs and retrieve B-V dataframes.
 for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
     print('Processing pair {}/{}'.format(counter, len(zps)))
-
-    BVdf, metadataV, metadataB = get_flux_ratio(phots, zp, pt)
-    BVdf.replace([np.inf, -np.inf], np.nan)    # set any "inf" values to NaN
-
-    # Write dataframe to CSV. NaN is represented as -9999
-    fname = '{}B-V_{}-{}.csv'.format(mypath, metadataB['filter1'],
-                                     metadataV['filter1'])
-    BVdf.to_csv(path_or_buf=fname, encoding='utf-8', na_rep='-9999')
+    status, BVdf, m1, m2 = get_flux_ratio(phots, zp, pt)
+    if status == 'Fail':
+        print('Filter {} had flux < 0: {}'.format(m1, m2))
+    elif status == 'OK':
+        BVdf.replace([np.inf, -np.inf], np.nan)    # set any "inf" values to NaN
+        # Write dataframe to CSV. NaN is represented as -9999
+        fname = '{}B-V_{}-{}.csv'.format(mypath, m2['filter1'],
+                                         m1['filter1'])
+        BVdf.to_csv(path_or_buf=fname, encoding='utf-8', na_rep='-9999')
     counter += 1
