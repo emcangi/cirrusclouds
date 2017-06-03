@@ -108,7 +108,7 @@ def summarize_set(mypath):
 
         # Extract the filter combination
         possfilters = ['11', '15', '47', '82a', 'None', 'LRGBred', 'LRGBgreen',
-                       'LRGBblue', 'LRGBluminance']
+                       'LRGBblue', 'LRGBluminance', 'IR']
 
         # print('Now finding the filters')
         # print('file path: {}'.format(fpath))

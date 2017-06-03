@@ -54,7 +54,7 @@ with open(thefile, 'r') as f:
 
 # this is used for sorting the commands
 possfilters = ['11', '15', '47', '82a', 'LRGBred', 'LRGBgreen',
-                       'LRGBblue', 'LRGBluminance', 'None']
+                       'LRGBblue', 'LRGBluminance', 'None', 'IR']
 
 # sort the commands based on the filter
 for fil in possfilters:
@@ -65,7 +65,7 @@ for fil in possfilters:
 # write out the sorted commands to the file
 fn = 'man_polyphot_cmds_{}_{}.txt'
 writepath = thepath+setkey+fn
-import pickle
+
 with open(writepath.format(dated_folder, date, set_input), 'w') as f:
     for cmd in cmds_sort:
         f.write(cmd + '\n')
