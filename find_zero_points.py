@@ -33,17 +33,18 @@ print('(Published values from Gallouet 1963)')
 print
 
 # fluxes for each filter. Taken from photometries ==============================
-fnone = 67539.54
+# these values are from the 10 April moon data set, and the flux column.
+fnone = 67494.06
 
 # visual-er filters: filters with their dominant/central wavelength > 550 nm
-f11 = 40235.62
-f15 = 27105.91
-fred = 12812.36
+f11 = 40216.71
+f15 = 27083.56
+fred = 12787.48
 fgreen = 22084.62
 
 # bluer filters: filters with their dominant/central wavelength < 550 nm
-f47 = 1686.559
-f82a = 59647.08
+f47 = 1651.552
+f82a = 59623.73
 fblue = 13976.66
 flum = 60027.88
 
