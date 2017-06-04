@@ -38,8 +38,6 @@ def make_dataframe(phot_file, pt):
     :return: a Pandas dataframe displaying B-V, count error/cell and B-V error
     """
 
-    global un
-
     # Copy polyphot data to new file without headers --------------------------
     out_file = phot_file + '_data'
 
@@ -54,20 +52,7 @@ def make_dataframe(phot_file, pt):
     cell = 0    # keeps track of which cell we are on; order is how the cells
                 # appear in the photometry file.
 
-    # Find the count error from the files_and_params.txt file ------------------
-    timestamp = re.search('(?<=sec\/).+(?=_pho)', phot_file).group(0)
-    date = re.search('(\d+[A-Za-z]+.+)(?=\/s)', phot_file).group(0)
-    paramfilepath = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
-                    '/NewCamera/{}/files_and_params.txt'
-
-    with open(paramfilepath.format(un, date), 'r') as f:
-        stuff = f.readlines()
-        stuff = [i.split('\t') for i in stuff if i != '\n']
-    for s in stuff:
-        if timestamp in s[0]:
-            err = float(s[3])
-
-    #TODO: Make next block a heckin lot more elegant...
+    # TODO: Make next block a heckin lot more elegant...
     # Loops through the photometry file lines and collects data ================
     with open(out_file, 'r') as f:
         for line in f:
@@ -75,13 +60,11 @@ def make_dataframe(phot_file, pt):
             # First grab sky background, filters and grid size -- only need
             # to do this once but there's not really a more elegant way.
             if ln_cnt == 3:
-                msky = float(line.split()[0])  # gets magnitude of sky
-                sigma = float(line.split()[1])  # gets sigma
-                # print('Found msky and sigma: {} and {}'.format(msky, sigma))
+                msky = float(line.split()[0])
+                sigma = float(line.split()[1])
             if ln_cnt == 4:
                 filter1 = line.split()[2].split(',')[0]
                 filter2 = line.split()[2].split(',')[1]
-                # print('Found filters: {}, {}'.format(filter1, filter2))
             if ln_cnt == 6:
                 gridsize = line.split()[0]
                 img_metadata = {'msky': msky, 'sigma': sigma, 'filter1':
@@ -125,18 +108,18 @@ def make_dataframe(phot_file, pt):
     # Headers of the table/dataframe
     if pt == 'g':
         big_table = [['Counts', 'Area(pixels)', 'Flux', 'CellErr',
-                      'MagErr', 'v1', 'v2', 'v3', 'v4']]
+                      'Err', 'v1', 'v2', 'v3', 'v4']]
     elif pt == 'm':
         big_table = [['Counts', 'Area(pixels)', 'Flux', 'CellErr', 'Err',
                       'vertices']]
 
+    # build data to add to dataframe
     for e1, e2 in zip(data, grid):
         datum = e1.split()
-
         del datum[-1]  # gets rid of junk characters added to the line
         datum = datum[:3]   # extract useful info only (counts, area, flux)
         datum = [float(i) for i in datum]
-        datum.append(err * datum[1])  # append a field with Cell Count Error
+        datum.append((sigma/5) * datum[1])  # append Cell Count Error
         datum.append(-99)  # field for the magnitude error. placeholder value.
 
         # appends vertices in neat ordered-pair format
@@ -170,9 +153,11 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     :param photfiles: Photometry files associated with imgs
     :param zp_pair: zero points for the filters being examined in these images
     :param pt: photometry type. 'm' = manual, 'g' = gridded
-    :return:
+
+    two possible returns, one for success, one for failure when flux < 0:
+    :return (success): status indicator, the dataframe, two metadata dicts
+    :return (failure): status indicator, None, problem filter name, flux value
     """
-    #TODO fill in the return line
 
     phot_fileB = photfiles[0]
     phot_fileV = photfiles[1]
@@ -200,15 +185,15 @@ def get_flux_ratio(photfiles, zp_pair, pt):
 
     # calculate the error of the B-V index. Error is function of flux. Thus
     # this must be done before we convert the flux to magnitudes.
-    dfB['Err'] = (-2.5 * (dfB['CellErr'])) / (dfB['Flux'] * log(10))
-    dfV['Err'] = (-2.5 * (dfV['CellErr'])) / (dfV['Flux'] * log(10))
+    # calculation: mag = -2.5 * log10(f) + zp, so
+    # dm = sqrt[((del_m/del_f)*df)^2] = |del_m/del_f| * df
+    dfB['Err'] = (2.5 * (dfB['CellErr'])) / (dfB['Flux'] * log(10))
+    dfV['Err'] = (2.5 * (dfV['CellErr'])) / (dfV['Flux'] * log(10))
 
-    # TODO: rerun calc with manual phot, now that these lines are commented out
+    # these only needed for when doing gridded photometry.
     # dfB = dfB[dfB['Flux'] != 0]
     # dfV = dfV[dfV['Flux'] != 0]
 
-    # TODO: are these lines optional? Re-run calculation with manual
-    # photometry now that these are commented out
     # dfB = dfB[dfB['Flux'] >= 0]
     # dfV = dfV[dfV['Flux'] >= 0]
 
@@ -217,14 +202,14 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     try:
         dfB['Flux'] = dfB['Flux'].apply(to_mag_b)
     except ValueError:
-        probflux = dfB.at[0,'Flux']
+        probflux = dfB.at[0, 'Flux']
         failed = True
         problemfilter = img_metadataB['filter1']
 
     try:
         dfV['Flux'] = dfV['Flux'].apply(to_mag_v)
     except ValueError:
-        probflux = dfV.at[0,'Flux']
+        probflux = dfV.at[0, 'Flux']
         failed = True
         problemfilter = img_metadataV['filter1']
 
@@ -238,7 +223,7 @@ def get_flux_ratio(photfiles, zp_pair, pt):
         B_V_df.rename(columns={'Flux': 'B-V'}, inplace=True)
         B_V_df.rename(columns={'Err': 'BVErr'}, inplace=True)
         B_V_df['B-V'] = dfB['Flux'] - dfV['Flux']
-        B_V_df['BVErr'] = sqrt(dfB['Err']**2 + dfV['Err']**2) #TODO: check
+        B_V_df['BVErr'] = sqrt(dfB['Err']**2 + dfV['Err']**2) # TODO: check
         return status, B_V_df, img_metadataV, img_metadataB
     elif failed:
         status = 'Fail'
@@ -280,13 +265,13 @@ else:
 # Collect a list of folders containing images, image paths and photometry paths
 
 for (dirpath, dirnames, files) in os.walk(mypath):
-    for file in files:
-        if file.endswith('.FIT'):     # store image path
-            img_paths.append(dirpath + '/' + file)
+    for f in files:
+        if f.endswith('.FIT'):     # store image path
+            img_paths.append(dirpath + '/' + f)
         else:
-            regex_result = re.search(phot_str_end, file)
+            regex_result = re.search(phot_str_end, f)
             if regex_result is not None:
-                phot_paths.append(dirpath + '/' + file)
+                phot_paths.append(dirpath + '/' + f)
 # print(img_paths)
 # print(len(img_paths))
 # print(phot_paths)
@@ -298,7 +283,6 @@ visuals = ['11', '15', 'LRGBred', 'LRGBgreen']
 combos = list(itertools.product(blues, visuals))
 
 # Collect the zero points in the same format for when we make the dataframe
-# TODO: does this make sense??
 zps = [list(i) for i in combos]
 
 for combo in zps:
@@ -316,12 +300,12 @@ for combo in combos:
     for i, p in zip(img_paths, phot_paths):
         # print('looking for {} or {} in \n {}'.format(combo[0], combo[1], i))
         # looks in image path and photometry file path for the blue filter
-        b_match_img = re.search('((?<=\/){}(?=\/))'.format(combo[0]), i)
-        b_match_phot = re.search('((?<=\/){}(?=\/))'.format(combo[0]), p)
+        b_match_img = re.search('((?<=/){}(?=/))'.format(combo[0]), i)
+        b_match_phot = re.search('((?<=/){}(?=/))'.format(combo[0]), p)
 
         # looks in image path and photometry file path for the visual filter
-        v_match_img = re.search('((?<=\/){}(?=\/))'.format(combo[1]), i)
-        v_match_phot = re.search('((?<=\/){}(?=\/))'.format(combo[1]), p)
+        v_match_img = re.search('((?<=/){}(?=/))'.format(combo[1]), i)
+        v_match_phot = re.search('((?<=/){}(?=/))'.format(combo[1]), p)
 
         # populates lists with pairs of image paths and photometry paths in
         # format [blue, visual]
@@ -335,7 +319,6 @@ for combo in combos:
             continue
     counter += 1
 
-# print(img_pairs)
 counter = 0
 
 # Iterate through pairs and retrieve B-V dataframes.
@@ -346,8 +329,8 @@ for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
     status, BVdf, m1, m2 = get_flux_ratio(phots, zp, pt)
 
     if status == 'Fail':
-        bfilt = re.search('(?<=set[0-9]{2}\/).+(?=\/.+?sec)', imgs[0]).group(0)
-        vfilt = re.search('(?<=set[0-9]{2}\/).+(?=\/.+?sec)', imgs[1]).group(0)
+        bfilt = re.search('(?<=set[0-9]{2}/).+(?=/.+?sec)', imgs[0]).group(0)
+        vfilt = re.search('(?<=set[0-9]{2}/).+(?=/.+?sec)', imgs[1]).group(0)
         report = 'Filter {} had flux < 0: {} \n Could not complete ' \
                  'combo {}-{} \n'.format(m1, m2, bfilt, vfilt)
         print(report)
