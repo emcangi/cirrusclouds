@@ -19,10 +19,10 @@ import re
 from math import log10, log, sqrt
 
 # Camera bias: Determined empirically. Faulty counts per pixel.
-BIAS = 0.1875  # Orion Starshoot All-in-one camera
+BIAS = 0.1875  # Orion StarShoot All-in-one camera
 
 # Zero points - Calculated in separate script find_zero_points.py
-ZP_DICT = {'11': -1.24, '15': -1.67, '47': -3.74, '82a': 0.13, 'LRGBred': -2.48,
+ZP_DICT = {'11': -1.24, '15': -1.67, '47': -3.77, '82a': 0.13, 'LRGBred': -2.48,
            'LRGBgreen': -1.89, 'LRGBblue': -1.45, 'LRGBluminance': 0.14}
 
 def make_dataframe(phot_file, pt):
@@ -37,6 +37,8 @@ def make_dataframe(phot_file, pt):
     :param pt: photometry type. 'm' = manual, 'g' = gridded
     :return: a Pandas dataframe displaying B-V, count error/cell and B-V error
     """
+
+    global un
 
     # Copy polyphot data to new file without headers --------------------------
     out_file = phot_file + '_data'
@@ -55,10 +57,10 @@ def make_dataframe(phot_file, pt):
     # Find the count error from the files_and_params.txt file ------------------
     timestamp = re.search('(?<=sec\/).+(?=_pho)', phot_file).group(0)
     date = re.search('(\d+[A-Za-z]+.+)(?=\/s)', phot_file).group(0)
-    paramfilepath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
+    paramfilepath = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
                     '/NewCamera/{}/files_and_params.txt'
 
-    with open(paramfilepath.format(date), 'r') as f:
+    with open(paramfilepath.format(un, date), 'r') as f:
         stuff = f.readlines()
         stuff = [i.split('\t') for i in stuff if i != '\n']
     for s in stuff:
@@ -170,6 +172,7 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     :param pt: photometry type. 'm' = manual, 'g' = gridded
     :return:
     """
+    #TODO fill in the return line
 
     phot_fileB = photfiles[0]
     phot_fileV = photfiles[1]
@@ -214,14 +217,14 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     try:
         dfB['Flux'] = dfB['Flux'].apply(to_mag_b)
     except ValueError:
-        probflux = dfB['Flux']
+        probflux = dfB.at[0,'Flux']
         failed = True
         problemfilter = img_metadataB['filter1']
 
     try:
         dfV['Flux'] = dfV['Flux'].apply(to_mag_v)
     except ValueError:
-        probflux = dfV['Flux']
+        probflux = dfV.at[0,'Flux']
         failed = True
         problemfilter = img_metadataV['filter1']
 
@@ -247,11 +250,13 @@ def get_flux_ratio(photfiles, zp_pair, pt):
 # Get the main folder to operate on. Should be a folder containing
 # filter-titled folders
 folder = raw_input('Please raw_input the main folder to operate on, '
-                   'e.g. 11February2017_MOON/set1. Should contain folders each '
+                   'e.g. 11February2017_MOON/set01. Should contain folders '
+                   'each '
                    'named for a filter: ')
-default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera' \
-          '/{}/'
-mypath = default.format(folder)
+un = raw_input('Enter the user account name of this computer: ')
+default = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
+          '/NewCamera/{}/'
+mypath = default.format(un, folder)
 
 # Make folders
 paths = []
@@ -334,11 +339,20 @@ for combo in combos:
 counter = 0
 
 # Iterate through pairs and retrieve B-V dataframes.
+errlog = open(mypath+'errorlog.txt', 'w')
+
 for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
     print('Processing pair {}/{}'.format(counter, len(zps)))
     status, BVdf, m1, m2 = get_flux_ratio(phots, zp, pt)
+
     if status == 'Fail':
-        print('Filter {} had flux < 0: {}'.format(m1, m2))
+        bfilt = re.search('(?<=set[0-9]{2}\/).+(?=\/.+?sec)', imgs[0]).group(0)
+        vfilt = re.search('(?<=set[0-9]{2}\/).+(?=\/.+?sec)', imgs[1]).group(0)
+        report = 'Filter {} had flux < 0: {} \n Could not complete ' \
+                 'combo {}-{} \n'.format(m1, m2, bfilt, vfilt)
+        print(report)
+        errlog.write(report)
+        errlog.write('\n')
     elif status == 'OK':
         BVdf.replace([np.inf, -np.inf], np.nan)    # set any "inf" values to NaN
         # Write dataframe to CSV. NaN is represented as -9999
@@ -346,3 +360,5 @@ for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
                                          m1['filter1'])
         BVdf.to_csv(path_or_buf=fname, encoding='utf-8', na_rep='-9999')
     counter += 1
+
+errlog.close()
