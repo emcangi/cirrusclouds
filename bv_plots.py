@@ -21,25 +21,25 @@ def extract_bv_data(bv_file_list):
     """
 
     :param bv_file_list:
-    :return:
+    :return: a list of format ['filtercombo', b-v, b-v error]
     """
-    filters = []
-    bvlist = []
-    errlist = []
+    thelist = []
 
     for fname in bv_file_list:
         pair = re.search('(?<=V_).+-.+(?=.csv)', fname).group(0)
-        filters.append(pair)
+        sublist = []
+        sublist.append(pair)
 
         with open(fname, 'r') as f:
             f.readline()  # the column names--we don't need these
             data_line = f.readline().split(',')
             b_v = round(float(data_line[1]), 3)
             err = round(float(data_line[3]), 3)
-            bvlist.append(b_v)
-            errlist.append(err)
+            sublist.append(b_v)
+            sublist.append(err)
+        thelist.append(sublist)
 
-    return filters, bvlist, errlist
+    return thelist
 
 
 def find_bv_files_in(path):
@@ -55,12 +55,18 @@ def find_bv_files_in(path):
     for f in os.listdir(path):
         if f.endswith(".csv") and f.startswith('B-V'):
             files.append(os.path.join(path, f))
+    files = sorted(files)
     return files
 
 
 def autolabel(rects, vals):
     """
-    Attach a text label above each bar displaying its height
+    Attach a text label above each bar displaying its height. For vertical
+    bar plots.
+
+    :param rects: the bars in the given bar plot
+    :param vals: actual values used to plot the bars, needed to display
+    negative labels
     """
 
     # get the sign of each value
@@ -74,17 +80,43 @@ def autolabel(rects, vals):
                 '{}'.format(s * height),
                 ha='center', va='bottom', fontsize=12)
 
+def autolabelh(rects, vals):
+    """
+    Attach a text label next to each bar displaying its width. For horizontal
+    bar plots.
+
+    :param rects: the bars in the given bar plot
+    :param vals: actual values used to plot the bars, needed to display
+    negative labels
+    """
+    # get the sign of each value
+    signs = [i / abs(i) for i in vals]
+
+    for r, s in zip(rects, signs):
+        width = r.get_width()
+        adj = max(vals) / 15
+        ax.text(s * (width + adj), r.get_y() + r.get_height() / 2.,
+                '{}'.format(round(s * width, 3)),
+                ha='center', va='center', fontsize=12)
+
 
 # IDENTIFY CLOUD AND MOON SETS TO COMPARE ======================================
 
-basepath = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera/'
+# collect path information to files
+basepath = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera/'
+un = raw_input('Please specify username of this computer account: ')
+basepath = basepath.format(un)
 cloudpath = raw_input('Please enter the cloud set folder, '
-                      'i.e. 3January2017_1/set1/: ')
+                      'i.e. 3January2017/set01/: ')
 moonpath = raw_input('Please enter the moon set folder, '
-                     'i.e. 10April2017_1/set1/: ')
+                     'i.e. 10April2017_MOON/set01/: ')
 
 full_cloud_path = basepath + cloudpath
 full_moon_path = basepath + moonpath
+
+# get the dates only--used for putting labels in the plots
+clouddate = re.search('([0-9]+[A-Za-z]+[0-9]+)', cloudpath).group(0)
+moondate = re.search('([0-9]+[A-Za-z]+[0-9]+)', moonpath).group(0)
 
 # GET ALL THE B-V FILES IN CLOUD AND MOON FOLDERS ==============================
 cloud_files = find_bv_files_in(full_cloud_path)
@@ -92,26 +124,43 @@ moon_files = find_bv_files_in(full_moon_path)
 
 # COLLECT B-V AND ERROR DATA FOR CLOUDS AND MOON ===============================
 
-filtersC, cloudbv, clouderr = extract_bv_data(cloud_files)
-filtersM, moonbv, moonerr = extract_bv_data(moon_files)
+clouddata = extract_bv_data(cloud_files)
+moondata = extract_bv_data(moon_files)
 
-if filtersC != filtersM:
-    raise Exception('Filter list is not equal between cloud and moon sets. '
-                    'Something has gone horribly wrong!')
-else:
-    pass
+# this may seem excessive and unpythonic, but it deals with the fact that
+# sometimes there isn't a B-V value for two given images of clouds because
+# one of them may have had a negative flux.
+filters = []
+cloudbv = []
+clouderr = []
+moonbv = []
+moonerr = []
 
-filters = filtersC
+for c in clouddata:
+    for m in moondata:
+        if c[0] == m[0]:
+            filters.append(c[0])
+            cloudbv.append(c[1])
+            clouderr.append(c[2])
+            moonbv.append(m[1])
+            moonerr.append(m[2])
+
 
 # CALCULATE RAW B-V DIFFERENCES BETWEEN CLOUD AND MOON DATASETS ================
+
 diffs = []
 for a, b in zip(cloudbv, moonbv):
     diffs.append(a - b)
 
-
 # PLOTTING =====================================================================
 
+# create and save plots in DATA, so they aren't buried in the photo folders
 ind = np.arange(len(filters))
+saveloc = '/home/{}/GoogleDrive/Phys/Research/BothunLab/DATA/'.format(un) + \
+          cloudpath
+
+if not os.path.exists(saveloc):
+    os.makedirs(saveloc)
 
 # Plot difference of cloud B-V and moon B-V ------------------------------------
 # Determines whether to color a bar gold or blue depending on the value
@@ -125,45 +174,52 @@ for d in diffs:
 gold = mpatches.Patch(color='gold', label='Diff <= 0.05')
 
 # Make the plot
-width = 0.8
+h = 0.8
 fig, ax = plt.subplots(figsize=(12, 10))
-bars = ax.bar(ind, diffs, width, align='center', color=colors, alpha=1)
-autolabel(bars, diffs)
+bars = ax.barh(ind, diffs, h, align='center', color=colors, alpha=1)
+autolabelh(bars, diffs)
 lg = ax.legend(handles=[gold], fontsize=18)
-xlbl = ax.set_xlabel('Filter combination (format: blue - visual)', fontsize=18)
-ylbl = ax.set_ylabel('(B-V)$_{cloud}$ - (B-V)$_{moon}$', fontsize=18)
-xt = ax.set_xticks(ind + width / 2)
-xtl = ax.set_xticklabels(filters, rotation="vertical")
+xlbl = ax.set_xlabel('(B-V)$_{cloud}$ - (B-V)$_{moon}$', fontsize=18)
+yt = ax.set_yticks(ind)
+ytl = ax.set_yticklabels(filters)
 plt.tick_params(axis='both', which='major', labelsize=16)
 titl = ax.set_title(
     'Difference in measured B-V index of cirrus clouds and the moon \n'
-    'using flux, not sum', y=1,
+    'Clouds: {}, Moon: {}'.format(clouddate, moondate), y=1,
     fontsize=22)
 
 # adjust margins slightly
-margin = max(diffs) * 0.1
+margin = max(diffs) * 0.15
 x0, x1, y0, y1 = plt.axis()
-plt.axis((x0 + margin,
-          x1 - margin,
-          y0 - margin,
-          y1 + margin))
+plt.axis((x0 - margin,
+          x1 + margin,
+          y0 + margin,
+          y1 - margin))
 
-plt.show()
+plt.savefig(saveloc + '/B-Vdiff.png', bbox_inches='tight')
 
 # Plot B-V for cloud next to B-V for moon with error bars ----------------------
-width = 0.4       # the width of the bars
+h = 0.4
 
-fig2, ax2 = plt.subplots(figsize=(20,10))
-rects1 = ax2.bar(ind, cloudbv, width, color='blue', alpha=0.7, yerr=clouderr)
-rects2 = ax2.bar(ind+width, moonbv, width, color='gray', alpha=0.8,
-                 yerr=moonerr)
-autolabel(rects1, cloudbv)
-autolabel(rects2, moonbv)
+fig2, ax2 = plt.subplots(figsize=(20, 10))
+rects1 = ax2.barh(ind, cloudbv, h, color='cyan', align='center', alpha=0.7,
+                  xerr=clouderr, error_kw=dict(ecolor='black'))
+rects2 = ax2.barh(ind+h, moonbv, h, color='gray', align='center', alpha=0.8,
+                  xerr=moonerr, error_kw=dict(ecolor='black'))
 lg2 = ax2.legend((rects1[0], rects2[0]), ('Clouds', 'Moon'), fontsize=18)
-xlbl2 = ax2.set_xlabel('Filter combination (format: blue-visual)', fontsize=18)
-ylbl2 = ax2.set_ylabel('B-V', fontsize=18)
-xt2 = ax2.set_xticks(ind + width / 2)
-xtl2 = ax2.set_xticklabels(filters, rotation="vertical")
+xlbl2 = ax2.set_xlabel('B-V', fontsize=18)
+yt2 = ax2.set_yticks(ind + h/4)
+ytl2 = ax2.set_yticklabels(filters)
 plt.tick_params(axis='both', which='major', labelsize=16)
-titl2 = ax2.set_title('B-V of clouds compared to moon', fontsize=22)
-plt.show()
+titl2 = ax2.set_title('B-V of clouds compared to moon \n'
+                      'Clouds: {}, Moon: {}'.format(clouddate, moondate),
+                      fontsize=22)
+autolabelh(rects1, cloudbv)
+autolabelh(rects2, moonbv)
+plt.savefig(saveloc + '/cloudsvsmoon.png', bbox_inches='tight')
+
+# Lastly, save a file specifying which moon set we compare to
+f = open(saveloc + '/moon_comparison_set_{}.txt'.format(moondate), 'w')
+f.write('Compared to {}'.format(moondate))
+
+f.close()
