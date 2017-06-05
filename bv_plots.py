@@ -116,6 +116,7 @@ full_moon_path = basepath + moonpath
 
 # get the dates only--used for putting labels in the plots
 clouddate = re.search('([0-9]+[A-Za-z]+[0-9]+)', cloudpath).group(0)
+cloudset = re.search('set\d{2}', cloudpath).group(0)
 moondate = re.search('([0-9]+[A-Za-z]+[0-9]+)', moonpath).group(0)
 
 # GET ALL THE B-V FILES IN CLOUD AND MOON FOLDERS ==============================
@@ -185,7 +186,7 @@ ytl = ax.set_yticklabels(filters)
 plt.tick_params(axis='both', which='major', labelsize=16)
 titl = ax.set_title(
     'Difference in measured B-V index of cirrus clouds and the moon \n'
-    'Clouds: {}, Moon: {}'.format(clouddate, moondate), y=1,
+    'Clouds: {} {}, Moon: {}'.format(clouddate, cloudset, moondate), y=1,
     fontsize=22)
 
 # adjust margins slightly
@@ -212,7 +213,8 @@ yt2 = ax2.set_yticks(ind + h/4)
 ytl2 = ax2.set_yticklabels(filters)
 plt.tick_params(axis='both', which='major', labelsize=16)
 titl2 = ax2.set_title('B-V of clouds compared to moon \n'
-                      'Clouds: {}, Moon: {}'.format(clouddate, moondate),
+                      'Clouds: {} {}, Moon: {}'.format(clouddate, cloudset,
+                                                       moondate),
                       fontsize=22)
 autolabelh(rects1, cloudbv)
 autolabelh(rects2, moonbv)
