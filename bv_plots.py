@@ -80,6 +80,7 @@ def autolabel(rects, vals):
                 '{}'.format(s * height),
                 ha='center', va='bottom', fontsize=12)
 
+
 def autolabelh(rects, vals):
     """
     Attach a text label next to each bar displaying its width. For horizontal
@@ -100,33 +101,34 @@ def autolabelh(rects, vals):
                 ha='center', va='center', fontsize=12)
 
 
-# IDENTIFY CLOUD AND MOON SETS TO COMPARE ======================================
+# IDENTIFY CLOUD AND MOON/SUN SETS TO COMPARE ==================================
 
 # collect path information to files
 basepath = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera/'
 un = raw_input('Please specify username of this computer account: ')
 basepath = basepath.format(un)
 cloudpath = raw_input('Please enter the cloud set folder, '
-                      'i.e. 3January2017/set01/: ')
-moonpath = raw_input('Please enter the moon set folder, '
-                     'i.e. 10April2017_MOON/set01/: ')
+                      'i.e. 3January2017/set01: ')
+comparedpath = raw_input('Please enter the comparison set folder, '
+                     'i.e. 10April2017_MOON/set01: ')
 
 full_cloud_path = basepath + cloudpath
-full_moon_path = basepath + moonpath
+full_compared_path = basepath + comparedpath
 
 # get the dates only--used for putting labels in the plots
 clouddate = re.search('([0-9]+[A-Za-z]+[0-9]+)', cloudpath).group(0)
 cloudset = re.search('set\d{2}', cloudpath).group(0)
-moondate = re.search('([0-9]+[A-Za-z]+[0-9]+)', moonpath).group(0)
+comparedate = re.search('([0-9]+[A-Za-z]+[0-9]+)', comparedpath).group(0)
+comparetype = re.search('(?<=_)\w+', comparedpath).group(0).lower()
 
 # GET ALL THE B-V FILES IN CLOUD AND MOON FOLDERS ==============================
 cloud_files = find_bv_files_in(full_cloud_path)
-moon_files = find_bv_files_in(full_moon_path)
+compared_files = find_bv_files_in(full_compared_path)
 
 # COLLECT B-V AND ERROR DATA FOR CLOUDS AND MOON ===============================
 
 clouddata = extract_bv_data(cloud_files)
-moondata = extract_bv_data(moon_files)
+comparedata = extract_bv_data(compared_files)
 
 # this may seem excessive and unpythonic, but it deals with the fact that
 # sometimes there isn't a B-V value for two given images of clouds because
@@ -134,23 +136,23 @@ moondata = extract_bv_data(moon_files)
 filters = []
 cloudbv = []
 clouderr = []
-moonbv = []
-moonerr = []
+comparebv = []
+compareErr = []
 
 for c in clouddata:
-    for m in moondata:
+    for m in comparedata:
         if c[0] == m[0]:
             filters.append(c[0])
             cloudbv.append(c[1])
             clouderr.append(c[2])
-            moonbv.append(m[1])
-            moonerr.append(m[2])
+            comparebv.append(m[1])
+            compareErr.append(m[2])
 
 
 # CALCULATE RAW B-V DIFFERENCES BETWEEN CLOUD AND MOON DATASETS ================
 
 diffs = []
-for a, b in zip(cloudbv, moonbv):
+for a, b in zip(cloudbv, comparebv):
     diffs.append(a - b)
 
 # PLOTTING =====================================================================
@@ -169,24 +171,31 @@ colors = []
 for d in diffs:
     if abs(d) <= 0.05:
         colors.append('gold')
+    elif 0.05 <= abs(d) <= 0.1:
+        colors.append('silver')
     else:
-        colors.append('blue')
+        colors.append('cornflowerblue')
 
 gold = mpatches.Patch(color='gold', label='Diff <= 0.05')
+silver = mpatches.Patch(color='silver', label='Diff <= 0.1')
 
 # Make the plot
 h = 0.8
 fig, ax = plt.subplots(figsize=(12, 10))
 bars = ax.barh(ind, diffs, h, align='center', color=colors, alpha=1)
 autolabelh(bars, diffs)
-lg = ax.legend(handles=[gold], fontsize=18)
-xlbl = ax.set_xlabel('(B-V)$_{cloud}$ - (B-V)$_{moon}$', fontsize=18)
+lg = ax.legend(handles=[gold, silver], fontsize=18)
+# this next bit of madness is because i'm using both latex and string
+# formatting in the same line
+xlbl_str = '(B-V)$_{' + 'cloud' + '}$ - (B-V)$_{' + comparetype + '}$'
+xlbl = ax.set_xlabel(xlbl_str, fontsize=18)
 yt = ax.set_yticks(ind)
 ytl = ax.set_yticklabels(filters)
 plt.tick_params(axis='both', which='major', labelsize=16)
 titl = ax.set_title(
-    'Difference in measured B-V index of cirrus clouds and the moon \n'
-    'Clouds: {} {}, Moon: {}'.format(clouddate, cloudset, moondate), y=1,
+    'Difference in measured B-V index of cirrus clouds and the {} \n'
+    'Clouds: {} {}, {}: {}'.format(comparetype, clouddate, cloudset,
+                                   comparetype, comparedate), y=1,
     fontsize=22)
 
 # adjust margins slightly
@@ -197,31 +206,35 @@ plt.axis((x0 - margin,
           y0 + margin,
           y1 - margin))
 
-plt.savefig(saveloc + '/B-Vdiff.png', bbox_inches='tight')
+plt.savefig(saveloc + '/B-Vdiff_{}.png'.format(comparetype),
+            bbox_inches='tight')
 
 # Plot B-V for cloud next to B-V for moon with error bars ----------------------
 h = 0.4
+comparecolor = 'gray' if comparetype=='moon' else 'yellow'
 
 fig2, ax2 = plt.subplots(figsize=(20, 10))
 rects1 = ax2.barh(ind, cloudbv, h, color='cyan', align='center', alpha=0.7,
                   xerr=clouderr, error_kw=dict(ecolor='black'))
-rects2 = ax2.barh(ind+h, moonbv, h, color='gray', align='center', alpha=0.8,
-                  xerr=moonerr, error_kw=dict(ecolor='black'))
-lg2 = ax2.legend((rects1[0], rects2[0]), ('Clouds', 'Moon'), fontsize=18)
+rects2 = ax2.barh(ind + h, comparebv, h, color=comparecolor, align='center',
+                  alpha=0.8, xerr=compareErr, error_kw=dict(ecolor='black'))
+lg2 = ax2.legend((rects1[0], rects2[0]), ('Clouds', comparetype), fontsize=18)
 xlbl2 = ax2.set_xlabel('B-V', fontsize=18)
 yt2 = ax2.set_yticks(ind + h/4)
 ytl2 = ax2.set_yticklabels(filters)
 plt.tick_params(axis='both', which='major', labelsize=16)
-titl2 = ax2.set_title('B-V of clouds compared to moon \n'
-                      'Clouds: {} {}, Moon: {}'.format(clouddate, cloudset,
-                                                       moondate),
-                      fontsize=22)
+titl2 = ax2.set_title('B-V of clouds compared to {} \n'
+                      'Clouds: {} {}, {}: {}'.format(comparetype, clouddate,
+                                                     cloudset, comparetype,
+                                                     comparedate), fontsize=22)
 autolabelh(rects1, cloudbv)
-autolabelh(rects2, moonbv)
-plt.savefig(saveloc + '/cloudsvsmoon.png', bbox_inches='tight')
+autolabelh(rects2, comparebv)
+plt.savefig(saveloc + '/cloudsvs{}.png'.format(comparetype),
+            bbox_inches='tight')
 
 # Lastly, save a file specifying which moon set we compare to
-f = open(saveloc + '/moon_comparison_set_{}.txt'.format(moondate), 'w')
-f.write('Compared to {}'.format(moondate))
+f = open(saveloc + '/{}_comparison_set_{}.txt'.format(comparetype,
+                                                      comparedate), 'w')
+f.write('Compared to {}'.format(comparedate))
 
 f.close()
