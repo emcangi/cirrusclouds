@@ -4,11 +4,13 @@
 # ============================================================================ #
 # Eryn Cangi
 # 1 September 2016
-# Script #3 of 5 to run
+# Script #3a of 5 to run
 # Uses files_and_params.txt (a summary of various images and their sky
 # values, etc) to calculate photometry for many images at once. Photometry
-# files are stored in the same folder as their parent image.
-# To use, run in the terminal.
+# files are stored in the same folder as their parent image. This is the
+# script to run if you want to do automatic photometry using a grid. If you
+# want to do manual photometry, run script #3b (generate_manual_cmds.py).
+# To use this script, run in the terminal.
 # ============================================================================ #
 
 
@@ -24,31 +26,20 @@ def prepare_params():
     itself, and will be user- or computer- dependent.
     """
 
-    default = '/home/emc/GoogleDrive/Phys/Research/BothunLab' \
-                     '/AnalysisFiles/{}/files_and_params.txt'
+    # Identify the files_and_params file to use
+    default = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
+              '/NewCamera/{}/files_and_params.txt'
 
-    print('Current default path to the image parameter file is {}, where curly '
-          'braces represent the working directory\n'.format(default))
+    un = raw_input('Please specify username of this computer account (enter to '
+                   'use default of "emc"): ')
+    folder = raw_input('Enter the working directory name (e.g. 2June2017): ')
 
-    choice = raw_input('How do you want to identify the image & parameter '
-                       'file?\n'
-                       '[1]: Enter full path to the file\n'
-                       '[2]: Enter just the working directory name (use '
-                       'the default path)\n'
-                       'Your choice: ')
-
-    if choice == '1':
-        param_file = raw_input('Please input path: ')
-    elif choice == '2':
-        d = raw_input('Please input directory name with spaces, slashes '
-                      'allowed: ')
-        param_file = default.format(d)
+    if un == '':
+        un = 'emc'
     else:
-        while choice != 1 or choice != 2:
-            choice = raw_input('Please enter either 1 or 2:\n'
-                               '[1]: Enter full path to the file\n'
-                               '[2]: Enter just the working directory name ('
-                               'use the default path)\n\n')
+        pass
+
+    param_file = default.format(un, folder)
 
     # Read in the param_file and put values in a list. value order is:
     # IMAGE  SKYVAL  SIGMA  SKYVAL ERR  EXPOSURE  FILTER 1  FILTER 2  PATH
@@ -87,18 +78,8 @@ def do_photometry():
     image_data, lognames = prepare_params()
 
     # Identify the grid files --------------------------------------------------
-    default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/AnalysisFiles' \
+    path = '/home/emc/GoogleDrive/Phys/Research/BothunLab/AnalysisFiles' \
               '/gridfiles/'
-
-    print('Default path for coordinate and polygon files: \n{}'.format(default))
-    use_default = raw_input('Use base path? (y/n): ')
-    if use_default == 'n':
-        path = raw_input('Enter new path to coordinate and polygon files: ')
-    elif use_default == 'y':
-        path = default
-    else:
-        while use_default != 'n' or use_default != 'y':
-            use_default = raw_input('Please enter y or n: ')
 
     print('Available grid files: ')
 
@@ -130,17 +111,7 @@ def do_photometry():
         filter2 = image[6]
         im_path = image[7]
 
-        # calculate errors for the given cell
-        # TODO: make this less idiotic (next 6 lines)
-        count_err = float(err) * area
         print('Processing image {}'.format(filename))
-        err_file_name = '{}/{} count error is {}.txt'.format(im_path, logname,
-                                                             count_err)
-        dumb = open(err_file_name, 'w')
-        dumb.write('Error is {} counts per cell of area {}'.format(count_err,
-                                                                   area))
-        dumb.close()
-
         # call the task, then write the error to the logfile at the end.
         iraf.polyphot(im_path+filename, coords=path+coordfile,
                       output=im_path+logname, polygons=path+polygonfile,
