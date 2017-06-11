@@ -25,6 +25,7 @@ BIAS = 0.1875  # Orion StarShoot All-in-one camera
 ZP_DICT = {'11': -1.24, '15': -1.67, '47': -3.77, '82a': 0.13, 'LRGBred': -2.48,
            'LRGBgreen': -1.89, 'LRGBblue': -1.45, 'LRGBluminance': 0.14}
 
+
 def make_dataframe(phot_file, pt):
     """
     Analyzes the photometry file of a single image to create a tidy Pandas data
@@ -168,12 +169,8 @@ def get_flux_ratio(photfiles, zp_pair, pt):
 
     # Get the tidy flux counts for the B and V filters--these are not yet B
     # or V magnitudes, they are still fluxes!
-    # print('trying to run make_dataframe')
     dfB, img_metadataB = make_dataframe(phot_fileB, pt)
-    # print('B ok')
     dfV, img_metadataV = make_dataframe(phot_fileV, pt)
-    # print('V ok')
-    # print('successfully ran make_dataframe')
 
     # ==========================================================================
     # CALCULATE THE FLUX RATIOS AND B-V INDICES
@@ -190,28 +187,36 @@ def get_flux_ratio(photfiles, zp_pair, pt):
     dfB['Err'] = (2.5 * (dfB['CellErr'])) / (dfB['Flux'] * log(10))
     dfV['Err'] = (2.5 * (dfV['CellErr'])) / (dfV['Flux'] * log(10))
 
-    # these only needed for when doing gridded photometry.
-    # dfB = dfB[dfB['Flux'] != 0]
-    # dfV = dfV[dfV['Flux'] != 0]
+    if pt == 'g':
+        dfB = dfB[dfB['Flux'] != 0]
+        dfV = dfV[dfV['Flux'] != 0]
 
-    # dfB = dfB[dfB['Flux'] >= 0]
-    # dfV = dfV[dfV['Flux'] >= 0]
+        dfB = dfB[dfB['Flux'] >= 0]
+        dfV = dfV[dfV['Flux'] >= 0]
 
     failed = False
     # Convert the flux values to magnitudes
     try:
         dfB['Flux'] = dfB['Flux'].apply(to_mag_b)
     except ValueError:
-        probflux = dfB.at[0, 'Flux']
-        failed = True
-        problemfilter = img_metadataB['filter1']
+        if pt == 'm':
+            probflux = dfB.at[0, 'Flux']
+            failed = True
+            problemfilter = img_metadataB['filter1']
+        if pt == 'g':
+            print('Unhandled exception! Math domain error when switching to '
+                  'magnitudes, despite having removed all fluxes <= 0.')
 
     try:
         dfV['Flux'] = dfV['Flux'].apply(to_mag_v)
     except ValueError:
-        probflux = dfV.at[0, 'Flux']
-        failed = True
-        problemfilter = img_metadataV['filter1']
+        if pt == 'm':
+            probflux = dfV.at[0, 'Flux']
+            failed = True
+            problemfilter = img_metadataV['filter1']
+        if pt == 'g':
+            print('Unhandled exception! Math domain error when switching to '
+                  'magnitudes, despite having removed all fluxes <= 0.')
 
     # Make the B-V dataframe. Maintain vertex columns without knowing how
     # many there are or what they are called.
@@ -223,7 +228,10 @@ def get_flux_ratio(photfiles, zp_pair, pt):
         B_V_df.rename(columns={'Flux': 'B-V'}, inplace=True)
         B_V_df.rename(columns={'Err': 'BVErr'}, inplace=True)
         B_V_df['B-V'] = dfB['Flux'] - dfV['Flux']
-        B_V_df['BVErr'] = sqrt(dfB['Err']**2 + dfV['Err']**2) # TODO: check
+
+        sr = lambda x: sqrt(x)
+        B_V_df['BVErr'] = dfB['Err']**2 + dfV['Err']**2
+        B_V_df['BVErr'] = B_V_df['BVErr'].apply(sr)
         return status, B_V_df, img_metadataV, img_metadataB
     elif failed:
         status = 'Fail'
@@ -234,14 +242,17 @@ def get_flux_ratio(photfiles, zp_pair, pt):
 
 # Get the main folder to operate on. Should be a folder containing
 # filter-titled folders
+un = raw_input('Enter the user account name of this computer: ')
 folder = raw_input('Please raw_input the main folder to operate on, '
                    'e.g. 11February2017_MOON/set01. Should contain folders '
                    'each '
                    'named for a filter: ')
-un = raw_input('Enter the user account name of this computer: ')
 default = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
           '/NewCamera/{}/'
 mypath = default.format(un, folder)
+saveloc = mypath + 'BVGrid/'
+if not os.path.exists(saveloc):
+    os.makedirs(saveloc)
 
 # Make folders
 paths = []
@@ -253,14 +264,15 @@ phot_paths = []
 photometry_type = raw_input('Is photometry [m]anual or [g]ridded?: ')
 pt = photometry_type.lower()
 
+while pt not in ['m', 'g']:
+    photometry_type = raw_input('Is photometry [m]anual or [g]ridded?: ')
+    pt = photometry_type.lower()
+
 if pt == 'm':
     phot_str_end = 'manual$'
 elif pt == 'g':
-    phot_str_end = '([0-9]){1,3}[x]([0-9]){1,3}$'
-else:
-    while pt not in ['m', 'g']:
-        photometry_type = raw_input('Is photometry [m]anual or [g]ridded?: ')
-        pt = photometry_type.lower()
+    phot_str_end = raw_input('Which grid size to use? (Must already have a '
+                             'file created): ')
 
 # Collect a list of folders containing images, image paths and photometry paths
 
@@ -322,10 +334,10 @@ for combo in combos:
 counter = 0
 
 # Iterate through pairs and retrieve B-V dataframes.
-errlog = open(mypath+'errorlog.txt', 'w')
+errlog = open(saveloc + 'errorlog.txt', 'w')
 
 for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
-    print('Processing pair {}/{}'.format(counter, len(zps)))
+    print('Processing pair {}/{}'.format(counter+1, len(zps)))
     status, BVdf, m1, m2 = get_flux_ratio(phots, zp, pt)
 
     if status == 'Fail':
@@ -339,8 +351,7 @@ for imgs, phots, zp in zip(img_pairs, phot_pairs, zps):
     elif status == 'OK':
         BVdf.replace([np.inf, -np.inf], np.nan)    # set any "inf" values to NaN
         # Write dataframe to CSV. NaN is represented as -9999
-        fname = '{}B-V_{}-{}.csv'.format(mypath, m2['filter1'],
-                                         m1['filter1'])
+        fname = '{}B-V_{}-{}.csv'.format(saveloc, m2['filter1'], m1['filter1'])
         BVdf.to_csv(path_or_buf=fname, encoding='utf-8', na_rep='-9999')
     counter += 1
 
