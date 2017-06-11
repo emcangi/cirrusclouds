@@ -92,8 +92,7 @@ def do_photometry():
     area = int(dim1) * int(dim2)
 
     # adjust lognames if grid size is not 10x10 to avoid overwriting files
-    if gsize != '10x10':
-        lognames = [i+'_'+gsize for i in lognames]
+    lognames = [i+'_'+gsize for i in lognames]
 
     coordfile = gsize + 'grid_centers.txt'
     polygonfile = gsize + 'grid_polygons.txt'
