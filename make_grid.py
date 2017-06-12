@@ -1,3 +1,6 @@
+#!/home/emc/anaconda3/envs/astroconda/bin/python
+# -*- coding: utf-8 -*-
+
 def make_grid(nx, ny, size, vertices=False):
     """
     Generate grid coordinates for an image as well as coordinates of polygon
@@ -14,13 +17,18 @@ def make_grid(nx, ny, size, vertices=False):
 
     import numpy as np
 
-    x_beg = 0             #x and y start pixels
+    x_beg = 0             # x and y start pixels
     y_beg = 0
     x_end = size[0]       # x and y end pixels
     y_end = size[1]
     dx = x_end // nx     # set x-dimension of rectangles
     dy = y_end // ny     # " y-dimension " "
-    name = '{}x{}grid'.format(nx, ny) # name for output files
+
+    # file saving information
+    path = '/home/emc/GoogleDrive/Phys/Research/BothunLab/AnalysisFiles' \
+           '/gridfiles/'
+    name = '{}x{}grid_{}x{}image'.format(nx, ny, size[0], size[1])
+    fpath = path + name
 
     print('Creating files for grid with cell size {}x{} px\n'
           'Grid size: {}x{}'.format(dx, dy, nx, ny))
@@ -36,7 +44,7 @@ def make_grid(nx, ny, size, vertices=False):
             raise ValueError('It is required to choose a grid size such that '
                              'the number of rectangles in each direction '
                              'exactly divides the image dimensions!')
-        np.savetxt(name+"_real_vertices.txt", big, fmt=('%4.0f', '%4.0f'))
+        np.savetxt(fpath+"_real_vertices.txt", big, fmt=('%4.0f', '%4.0f'))
 
     # Create list of polygon centers
     cx = np.tile(np.arange(x_beg + dx/2, x_end + dx/2, dx), ny)
@@ -47,13 +55,12 @@ def make_grid(nx, ny, size, vertices=False):
         raise ValueError('Bad grid size: you must choose a grid size such that'
                          ' the number of rectangles in each direction exactly '
                          'divides the image dimensions.')
-    np.savetxt(name+"_centers.txt", bigc, fmt=('%4.0f', '%4.0f'))
+    np.savetxt(fpath+"_centers.txt", bigc, fmt=('%4.0f', '%4.0f'))
                #newline='\n;\n')
-
 
     # Create polyphot's required file 'polygons'. Given in format of 4
     # vertices RELATIVE to the centers.
-    f = open(name+'_polygons.txt', 'w')
+    f = open(fpath+'_polygons.txt', 'w')
     f.write('0 0\n')
     f.write('{} 0\n'.format(dx))
     f.write('{} {}\n'.format(dx, dy))
@@ -63,14 +70,6 @@ def make_grid(nx, ny, size, vertices=False):
 
     print('...Files created sucessfully!')
 
-make_grid(10, 10, (1280, 960))
-make_grid(5, 4, (1280, 960))
-make_grid(8, 6, (1280, 960))
-make_grid(16, 12, (1280, 960))
-make_grid(32, 24, (1280, 960))
-make_grid(80, 64, (1280, 960))
-make_grid(80, 80, (1280, 960))
-make_grid(64, 64, (1280, 960))
-make_grid(20, 20, (1280, 960))
+
 
 
