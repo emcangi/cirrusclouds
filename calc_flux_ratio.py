@@ -271,8 +271,8 @@ while pt not in ['m', 'g']:
 if pt == 'm':
     phot_str_end = 'manual$'
 elif pt == 'g':
-    phot_str_end = raw_input('Which grid size to use? (Must already have a '
-                             'file created): ')
+    phot_str_end = raw_input('Specify grid size to use (file must exist): ')
+    phot_str_end += '$'
 
 # Collect a list of folders containing images, image paths and photometry paths
 

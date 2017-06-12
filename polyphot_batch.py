@@ -13,6 +13,7 @@
 # To use this script, run in the terminal.
 # ============================================================================ #
 
+import ast
 
 def prepare_params():
     """
@@ -28,8 +29,7 @@ def prepare_params():
 
     # Identify the files_and_params file to use
     default = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos' \
-              '/NewCamera/{}/files_and_params.txt'
-
+              '/NewCamera/{}/'
     un = raw_input('Please specify username of this computer account (enter to '
                    'use default of "emc"): ')
     folder = raw_input('Enter the working directory name (e.g. 2June2017): ')
@@ -39,19 +39,21 @@ def prepare_params():
     else:
         pass
 
-    param_file = default.format(un, folder)
+    default = default.format(un, folder)
+    param_file = default + 'files_and_params.txt'
 
     # Read in the param_file and put values in a list. value order is:
     # IMAGE  SKYVAL  SIGMA  SKYVAL ERR  EXPOSURE  FILTER 1  FILTER 2  PATH
+    # RESOLUTION
     image_data = []
 
     with open(param_file, 'r') as f:
         throwaway = f.readline()  # skip the first line which is a comment
         for line in f:
-            ln = line.split()
+            ln = line.strip().split('\t')
             if ln:
                 image_data.append([ln[0], ln[1], ln[2], ln[3], ln[4], ln[5],
-                                   ln[6], ln[7]])
+                                   ln[6], ln[7], ln[8]])
 
     # Generate some logfile names for photometry output
     logs = ['{}_photometry'.format(x[0][:-4]) for x in image_data]
@@ -81,21 +83,18 @@ def do_photometry():
     path = '/home/emc/GoogleDrive/Phys/Research/BothunLab/AnalysisFiles' \
               '/gridfiles/'
 
-    print('Available grid files: ')
-
-    for (dirpath, dirnames, gfile) in walk(path):
-        print(gfile)
+    # print('Available grid files: ')
+    #
+    # for (dirpath, dirnames, gfile) in walk(path):
+    #     print(gfile)
 
     gsize = raw_input('Enter the grid size to use (ex: 10x10): ')
-    dim1 = re.search('[0-9]+(?=x)', gsize).group(0)
-    dim2 = re.search('(?<=x)[0-9]+', gsize).group(0)
-    area = int(dim1) * int(dim2)
+    # dim1 = re.search('[0-9]+(?=x)', gsize).group(0)
+    # dim2 = re.search('(?<=x)[0-9]+', gsize).group(0)
+    #area = int(dim1) * int(dim2)
 
     # adjust lognames if grid size is not 10x10 to avoid overwriting files
-    lognames = [i+'_'+gsize for i in lognames]
-
-    coordfile = gsize + 'grid_centers.txt'
-    polygonfile = gsize + 'grid_polygons.txt'
+    # lognames = [i+'_'+gsize for i in lognames]
 
     # Loops through images and call polyphot for each --------------------------
     print('\nNow doing photometry. Please wait...\n')
@@ -109,14 +108,33 @@ def do_photometry():
         filter1 = image[5]
         filter2 = image[6]
         im_path = image[7]
+        res = ast.literal_eval(image[8])  # stores this as a tuple
+
+        # TODO specify resolution for ease and explicitness
+        xdim = res[0]
+        ydim = res[1]
+
+        # TODO handle 1024x768
+        if xdim == 1024 and ydim == 768:
+            gsize = '8x8'
+
+        # TODO update logname
+        logn = '_'.join([logname, gsize])
+
+        # TODO fix
+        # specify names of grid files to use
+        coordfile = gsize + 'grid_{}x{}image_centers.txt'.format(xdim, ydim)
+        polygonfile = gsize + 'grid_{}x{}image_polygons.txt'.format(xdim, ydim)
 
         print('Processing image {}'.format(filename))
         # call the task, then write the error to the logfile at the end.
         iraf.polyphot(im_path+filename, coords=path+coordfile,
-                      output=im_path+logname, polygons=path+polygonfile,
+                      output=im_path+logn, polygons=path+polygonfile,
                       interactive='no', skyvalue=sky, sigma=sig, itime=exp,
                       ifilter=', '.join([filter1, filter2]),
                       verify='no')
+
+        gsize = '10x10'
 
     print('Photometry complete!')
 

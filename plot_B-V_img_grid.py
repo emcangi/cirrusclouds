@@ -17,63 +17,104 @@ from astropy.io import fits
 from ast import literal_eval
 import numpy as np
 import re
-import math
 import os
+import sys
 
 # COLLECT INFORMATION ON IMAGES TO USE =========================================
+# we want to plot on top of images taken with no filter because they're
+# easiest to see.
+
 default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
-dir_extN = raw_input('Please enter the directory(ies) housing the image taken '
-                     'with no filter (ex. 28October2016/None/260microsec): ')
-imgN = raw_input('No-filter image file name: ')
-pathN = '/'.join([default, dir_extN, imgN])
-img_fileN = pathN if pathN[-4:] == '.FIT' else pathN + '.FIT'
 
-# OPEN FLUX RATIO DATAFRAME ====================================================
-dffile = raw_input('Please input the full path of the CSV file containing '
-                   'dataframe info: ')
-csvonly = re.search(r'FR.+.csv$', dffile).group(0)   # collects csv file name
-setpath = re.search(r'.+(?=FR.+.csv$)', dffile).group(0)  # where to save plots
-B_V_df = pd.read_csv(dffile)
+if sys.argv:
+    dir_extN = sys.argv[1]
+else:
+    dir_extN = raw_input('Please enter the directory(ies) housing the image taken '
+                         'with no filter (ex. '
+                          '28October2016/set01/None/260microsec): ')
+# automatically find the FIT image since there should be only one
+nonepath = '/'.join([default, dir_extN])
+for f in os.listdir(nonepath):
+    if f.endswith(".FIT"):
+        img_fileN = os.path.join(nonepath, f)
+        break
 
-# find min, max B-V values -----------------------------------------------------
-good = B_V_df.loc[B_V_df['B-V'] != -9999]
-max_bv = math.ceil(good.max(numeric_only=True)['B-V'])
-min_bv = math.floor(good.min(numeric_only=True)['B-V'])
+# need these for finding the CSV files
+date = re.search('\d{1,2}\D+\d{4}', dir_extN).group(0)
+theset = re.search('set\d{2}', dir_extN).group(0)
+if not theset:
+    theset = ''
+else:
+    pass
 
-# CREATE PLOTS =================================================================
-
+# PREPARATION TO LOOP-CREATE PLOTS =============================================
 # Load the FITS data for the no-filter image -----------------------------------
 hdu_list = fits.open(img_fileN)
 hdu_list.info()
 image_data = hdu_list[0].data
 hdu_list.close()
 
-# set max, min of B-V and the window size for plotting -------------------------
-resolution = 0.5
-cutoffs = np.arange(min_bv, max_bv, resolution)
+# set up the save location for created plots
+saveloc = '/home/emc/GoogleDrive/Phys/Research/BothunLab/DATA/' + date + '/' \
+          + theset + '/cloudfields/'
+if not os.path.exists(saveloc):
+    os.makedirs(saveloc)
 
-# collect filter names from CSV file name --------------------------------------
-csvonly = re.sub('FR_B-V_', '', csvonly)
-csvonly = re.sub('.csv', '', csvonly)
-filter1 = re.search(r'.+(?=-)', csvonly).group(0)
-filter2 = re.search(r'(?<=-).+', csvonly).group(0)
+# average cloud colors and stds
+avgs = {'47-11'                  : 0.93, '47-15': 0.70, '47-LRGBgreen': 0.97,
+        '47-LRGBred'             : 0.63,
+        '82a-11'                 : 1.02, '82a-15': 0.79, '82a-LRGBgreen': 1.04,
+        '82a-LRGBred'            : 0.71, 'LRGBblue-11': 0.87,
+        'LRGBblue-15'            : 0.65,
+        'LRGBblue-LRGBgreen'     : 0.89, 'LRGBblue-LRGBred': 0.57,
+        'LRGBluminance-11'       : 0.92, 'LRGBluminance-15': 0.69,
+        'LRGBluminance-LRGBgreen': 0.94, 'LRGBluminance-LRGBred': 0.61}
 
-# create a directory for the plots to live -------------------------------------
-imgpath = setpath + 'plots/' + '{}-{}/'.format(filter1, filter2)
-if not os.path.exists(imgpath):
-    os.makedirs(imgpath)
+stds = {'47-11'                  : 0.27, '47-15': 0.28, '47-LRGBgreen': 0.29,
+        '47-LRGBred'             : 0.27,
+        '82a-11'                 : 0.06, '82a-15': 0.09, '82a-LRGBgreen': 0.21,
+        '82a-LRGBred'            : 0.10, 'LRGBblue-11': 0.33,
+        'LRGBblue-15'            : 0.35,
+        'LRGBblue-LRGBgreen'     : 0.19, 'LRGBblue-LRGBred': 0.31,
+        'LRGBluminance-11'       : 0.22, 'LRGBluminance-15': 0.24,
+        'LRGBluminance-LRGBgreen': 0.13, 'LRGBluminance-LRGBred': 0.21}
 
-for i in range(len(cutoffs) - 1):
+filters = sorted(avgs.keys())
+
+# LOOP THROUGH CSVs ===========================================================
+csvloc = '/'.join([default, date, theset, 'BVGrid'])
+
+for combo in filters:
+    csvfile = 'B-V_{}.csv'.format(combo)
+    B_V_df = pd.read_csv('/'.join([csvloc, csvfile]))
+
+    # ignore bad values --------------------------------------------------------
+    good = B_V_df.loc[B_V_df['B-V'] != -9999]
+    # max_bv = math.ceil(good.max(numeric_only=True)['B-V'])
+    # min_bv = math.floor(good.min(numeric_only=True)['B-V'])
+
+    # CREATE PLOTS =============================================================
+
+    # collect filter names for metadata etc ------------------------------------
+    filter1 = combo.split('-')[0]
+    filter2 = combo.split('-')[1]
+
     # Create figure, plot no-filter FITS image as background -------------------
     fig = plt.figure(figsize=(16, 12))
     ax = fig.add_subplot(111)
     plt.imshow(image_data, cmap='gray')
     ax.set_autoscale_on(False)
 
+    # get the cloud color and std for this particular filter combo
+    av = avgs[combo]
+    sig = stds[combo]
+    lowBV = av - sig
+    highBV = av + sig
+
     # iterate over the rows in the dataframe, plotting boxes -------------------
-    color = np.random.rand(3, 1)
+    color = 'cornflowerblue'  # np.random.rand(3, 1)
     for index, row in good.iterrows():
-        if cutoffs[i] < row['B-V'] < cutoffs[i+1]:
+        if lowBV < row['B-V'] < highBV:
             # collect the vertices for the boxes
             r1 = literal_eval(row['v1'])
             r2 = literal_eval(row['v2'])
@@ -88,14 +129,12 @@ for i in range(len(cutoffs) - 1):
             # ax.scatter(x, y, c='lime')  # toggle to turn on plotting vertices
             ax.plot(x, y, c=color)
 
-    ax.set_title('B-V values between {} and {} for filters {} (B) and {} ('
-                 'V)'.format(cutoffs[i], cutoffs[i+1], filter1, filter2),
-                 fontsize=20)
+    titlestr = u'B-V values: {}±{} for filters {} (B), {} (V)'
+    ax.set_title(titlestr.format(av, sig, filter1, filter2), fontsize=20)
     ax.get_xaxis().set_visible(False)
     ax.get_yaxis().set_visible(False)
 
     # save figure --------------------------------------------------------------
-    fname = 'B-V_{}to{}_filters_{}_and_{}.png'.format(cutoffs[i], cutoffs[i+1],
-                                                      filter1, filter2)
-    plt.savefig(imgpath+fname, bbox_inches='tight')
+    fname = 'cloudfield_{}-{}.png'.format(filter1, filter2)
+    plt.savefig(saveloc+fname, bbox_inches='tight')
     plt.close()

@@ -73,28 +73,29 @@ def summarize_set(mypath):
 
     full_file_paths = []    # makes dealing with opening images easy
     file_parent_dirs = []   # makes keeping track of parent directories easy
+    setpaths = []           # stores path to set folder, for finding resolution
 
     # Collect a list of files which contain pixel statistics -------------------
     for (dirpath, dirnames, files) in walk(mypath):
-        for file in files:
-            if file.endswith('_sky') or file.endswith('_sky.txt'):
-                full_file_paths.append(dirpath + '/' + file)
+        for f in files:
+            if f.endswith('_sky') or f.endswith('_sky.txt'):
+                full_file_paths.append(dirpath + '/' + f)
                 file_parent_dirs.append(dirpath + '/')
+                setpaths.append(re.search('.+set\d{2}\/', dirpath).group(0))
 
     # print('Using these files: {}'.format(full_file_paths))
 
     # Establish the output file for finalizing the sky values ------------------
-    print(mypath)
     output = open(mypath+'/files_and_params.txt', 'w')
     output.write('# IMAGE \t SKY VAL \t SIGMA \t SKYVAL ERR \t EXPOSURE \t '
-                 'FILTER 1 \t FILTER 2 \t PATH\n')
-    wstr = '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'
+                 'FILTER 1 \t FILTER 2 \t PATH \t RESOLUTION \n')
+    wstr = '{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'
 
     # MAIN LOOP OVER SKYSTAT FILES ---------------------------------------------
     # Extracts the filenames, pares down all datapoints (no matter how many),
     # finds the sky value, sigma and error and writes to output file
 
-    for fpath, fdir in zip(full_file_paths, file_parent_dirs):
+    for fpath, fdir, setdir in zip(full_file_paths, file_parent_dirs, setpaths):
         print('Processing file: {}'.format(fpath))
 
         # PARSE FILENAME FOR IMAGE METADATA ------------------------------------
@@ -122,9 +123,7 @@ def summarize_set(mypath):
                 continue
 
         second_filter = 'None'  # TODO: maybe add support for 2 filters.
-        # print('Done with filters')
 
-        # print('Now finding the exposure time')
         # Extract the exposure time:
         # regex 1st expression: devil magic I found on stackexchange to
         # match floating point numbers that also could sometimes be integers
@@ -141,18 +140,14 @@ def summarize_set(mypath):
                     'microsec': 1 * 10 ** (-6), 'nanosec': 1 * 10 ** (-9),
                     'picosec' : 1 * 10 ** (-12), 'femtosec': 1 * 10 ** (-15)}
         exp = round(val * unit_key[unit], 6)
-        # print('Done with exposure time')
 
-        # print('Now get the stats')
+        # Find the resolution--needed to id grid file for photometry generation
+        with open(setdir+'resolution.txt', 'r') as resfile:
+            res = tuple([int(i) for i in resfile.readline().split(' ')])
+
         # START WORKING ON STATISTICS IN FILE ----------------------------------
         with open(fpath, 'r') as f:
             lines = f.readlines()
-
-        # Get rid of extraneous lines created by pyRAF that we don't need
-        # for L in ['_run_imexam \n', '\n', 'all_m_stats \n', 'real_m_stats \n',
-        #           'SLICE   NPIX   MEAN   STD   MEDIAN   MIN   MAX\n']:
-        #     while L in lines:
-        #         lines.remove(L)
 
         means = []
         stds = []
@@ -168,14 +163,10 @@ def summarize_set(mypath):
             else:
                 continue
 
-        # print('Done with stats')
-        # print('Now write the stuff out')
         # summarize the stats and write to the output file
         skybg, sigma, bgerr = get_bg(means, stds, image)
         output.write(wstr.format(image, skybg, sigma, bgerr, exp, bpfilter,
-                                 second_filter, fdir))
-        # print('Done writing, next file...')
-        # print
+                                 second_filter, fdir, res))
 
     output.close()
 
