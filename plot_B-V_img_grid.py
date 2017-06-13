@@ -29,9 +29,10 @@ default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
 if sys.argv:
     dir_extN = sys.argv[1]
 else:
-    dir_extN = raw_input('Please enter the directory(ies) housing the image taken '
-                         'with no filter (ex. '
-                          '28October2016/set01/None/260microsec): ')
+    dir_extN = raw_input('Please enter the directory(ies) housing the image '
+                         'taken with no filter (ex. '
+                         '28October2016/set01/None/260microsec): ')
+
 # automatically find the FIT image since there should be only one
 nonepath = '/'.join([default, dir_extN])
 for f in os.listdir(nonepath):
@@ -61,23 +62,24 @@ if not os.path.exists(saveloc):
     os.makedirs(saveloc)
 
 # average cloud colors and stds
-avgs = {'47-11'                  : 0.93, '47-15': 0.70, '47-LRGBgreen': 0.97,
-        '47-LRGBred'             : 0.63,
-        '82a-11'                 : 1.02, '82a-15': 0.79, '82a-LRGBgreen': 1.04,
-        '82a-LRGBred'            : 0.71, 'LRGBblue-11': 0.87,
-        'LRGBblue-15'            : 0.65,
-        'LRGBblue-LRGBgreen'     : 0.89, 'LRGBblue-LRGBred': 0.57,
-        'LRGBluminance-11'       : 0.92, 'LRGBluminance-15': 0.69,
-        'LRGBluminance-LRGBgreen': 0.94, 'LRGBluminance-LRGBred': 0.61}
+# updated on 12 June 2017
+avgs = {'47-11'                  : 0.94, '47-15': 0.73, '47-LRGBgreen': 0.91,
+        '47-LRGBred'             : 0.67,
+        '82a-11'                 : 0.98, '82a-15': 0.78, '82a-LRGBgreen': 0.90,
+        '82a-LRGBred'            : 0.71, 'LRGBblue-11': 0.89,
+        'LRGBblue-15'            : 0.69,
+        'LRGBblue-LRGBgreen'     : 0.81, 'LRGBblue-LRGBred': 0.62,
+        'LRGBluminance-11'       : 0.92, 'LRGBluminance-15': 0.72,
+        'LRGBluminance-LRGBgreen': 0.84, 'LRGBluminance-LRGBred': 0.65}
 
-stds = {'47-11'                  : 0.27, '47-15': 0.28, '47-LRGBgreen': 0.29,
-        '47-LRGBred'             : 0.27,
-        '82a-11'                 : 0.06, '82a-15': 0.09, '82a-LRGBgreen': 0.21,
-        '82a-LRGBred'            : 0.10, 'LRGBblue-11': 0.33,
-        'LRGBblue-15'            : 0.35,
-        'LRGBblue-LRGBgreen'     : 0.19, 'LRGBblue-LRGBred': 0.31,
-        'LRGBluminance-11'       : 0.22, 'LRGBluminance-15': 0.24,
-        'LRGBluminance-LRGBgreen': 0.13, 'LRGBluminance-LRGBred': 0.21}
+stds = {'47-11'                  : 0.30, '47-15': 0.35, '47-LRGBgreen': 0.27,
+        '47-LRGBred'             : 0.37,
+        '82a-11'                 : 0.12, '82a-15': 0.20, '82a-LRGBgreen': 0.28,
+        '82a-LRGBred'            : 0.26, 'LRGBblue-11': 0.39,
+        'LRGBblue-15'            : 0.49,
+        'LRGBblue-LRGBgreen'     : 0.20, 'LRGBblue-LRGBred': 0.45,
+        'LRGBluminance-11'       : 0.30, 'LRGBluminance-15': 0.35,
+        'LRGBluminance-LRGBgreen': 0.19, 'LRGBluminance-LRGBred': 0.29}
 
 filters = sorted(avgs.keys())
 
@@ -90,8 +92,6 @@ for combo in filters:
 
     # ignore bad values --------------------------------------------------------
     good = B_V_df.loc[B_V_df['B-V'] != -9999]
-    # max_bv = math.ceil(good.max(numeric_only=True)['B-V'])
-    # min_bv = math.floor(good.min(numeric_only=True)['B-V'])
 
     # CREATE PLOTS =============================================================
 
