@@ -13,6 +13,7 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 from astropy.io import fits
 from ast import literal_eval
 import numpy as np
@@ -24,14 +25,15 @@ import sys
 # we want to plot on top of images taken with no filter because they're
 # easiest to see.
 
-default = '/home/emc/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
+default = '/home/{}/GoogleDrive/Phys/Research/BothunLab/SkyPhotos/NewCamera'
+un = sys.argv[1]
+default = default.format(un)
 
-if sys.argv:
-    dir_extN = sys.argv[1]
-else:
-    dir_extN = raw_input('Please enter the directory(ies) housing the image '
-                         'taken with no filter (ex. '
-                         '28October2016/set01/None/260microsec): ')
+dir_extN = sys.argv[2]
+
+# dir_extN = raw_input('Please enter the directory(ies) housing the image '
+#                      'taken with no filter (ex. '
+#                      '28October2016/set01/None/260microsec): ')
 
 # automatically find the FIT image since there should be only one
 nonepath = '/'.join([default, dir_extN])
@@ -51,13 +53,18 @@ else:
 # PREPARATION TO LOOP-CREATE PLOTS =============================================
 # Load the FITS data for the no-filter image -----------------------------------
 hdu_list = fits.open(img_fileN)
-hdu_list.info()
+header = hdu_list.info(output=False)
 image_data = hdu_list[0].data
+
+dim = header[0][4]  # collect image dimensions so we know the plot limits
+xmax = dim[0]
+ymax = dim[1]
+
 hdu_list.close()
 
 # set up the save location for created plots
-saveloc = '/home/emc/GoogleDrive/Phys/Research/BothunLab/DATA/' + date + '/' \
-          + theset + '/cloudfields/'
+saveloc = '/home/{}/GoogleDrive/Phys/Research/BothunLab/DATA/'.format(un) \
+          + date + '/' + theset + '/cloudfields/'
 if not os.path.exists(saveloc):
     os.makedirs(saveloc)
 
@@ -112,7 +119,7 @@ for combo in filters:
     highBV = av + sig
 
     # iterate over the rows in the dataframe, plotting boxes -------------------
-    color = 'cornflowerblue'  # np.random.rand(3, 1)
+    color = 'cornflowerblue'
     for index, row in good.iterrows():
         if lowBV < row['B-V'] < highBV:
             # collect the vertices for the boxes
@@ -121,6 +128,9 @@ for combo in filters:
             r3 = literal_eval(row['v3'])
             r4 = literal_eval(row['v4'])
 
+            p = mpatches.Polygon(np.array([r1, r2, r3, r4]), closed=True,
+                                 color='#6495ED', alpha=0.15)  #TODO: New
+            ax.add_patch(p)
             # Create the boxes
             #  including the 1st point at the end allows the boxes to be closed
             x = np.array([r1[0], r2[0], r3[0], r4[0], r1[0]])
@@ -128,6 +138,10 @@ for combo in filters:
 
             # ax.scatter(x, y, c='lime')  # toggle to turn on plotting vertices
             ax.plot(x, y, c=color)
+
+    ax.autoscale(enable=True, axis='both', tight=True)
+    ax.set_xlim([0, xmax])
+    ax.set_ylim([0, ymax])
 
     titlestr = u'B-V values: {}±{} for filters {} (B), {} (V)'
     ax.set_title(titlestr.format(av, sig, filter1, filter2), fontsize=20)
